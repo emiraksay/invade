@@ -1,7 +1,18 @@
 # Invade
 
 Hackathon project: friends put virtual coins into a pot, walk in real life to build armies, and battle over a map for the pot. Pitch line: "Invade: bet on your own steps."
-Full spec: `docs/PRODUCT.md` (coming). Architecture: `docs/ARCHITECTURE.md` (coming).
+Docs: `docs/PRODUCT.md` (spec), `docs/ARCHITECTURE.md` (stack, data flow, contracts), `docs/DESIGN.md` (Figma screens).
+
+## Layout
+
+- `apps/web`: Vite + React app (phone Player view + Mac Table view) and Vercel API functions in `apps/web/api`
+- `packages/engine`: pure TS game rules, shared types and API contracts. No UI/network imports. Tests: `npm test -w packages/engine`
+- `supabase/migrations`: DB schema
+
+## Contracts
+
+`packages/engine/src/{types,index,api}.ts` and `supabase/migrations/*` are shared contracts. Don't change them casually; if a change is needed, tell the user to announce it to the team first.
+The server is the only writer of game state; the LLM never computes odds or rules (code does).
 
 ## Git workflow (mandatory, see CONTRIBUTING.md)
 
