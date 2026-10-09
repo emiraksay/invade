@@ -11,3 +11,7 @@ coverage/
 .DS_Store
 *.log
 supabase/.temp/
+
+# Personal Claude Code notes (not shared)
+CLAUDE.local.md
+.claude/settings.local.json

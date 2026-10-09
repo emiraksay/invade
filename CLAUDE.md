@@ -12,3 +12,8 @@ Full spec: `docs/PRODUCT.md` (coming). Architecture: `docs/ARCHITECTURE.md` (com
 - Before marking a PR ready: `git pull --rebase origin main` and make sure checks pass.
 - Never commit secrets or `.env*` files other than `.env.example`.
 - If a change touches shared contracts (engine types, DB schema, function signatures), tell the user to announce it to the team before merging.
+
+## Where rules live
+
+- This file and `CONTRIBUTING.md` are the single source of truth for team rules. Change them only via PR.
+- Personal preferences go in `CLAUDE.local.md` (gitignored) or `~/.claude/CLAUDE.md`, never in shared files.
