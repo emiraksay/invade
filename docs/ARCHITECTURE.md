@@ -21,6 +21,7 @@
 6. **Snapshot, then subscribe.** Load state once, then apply Realtime changes; reload the snapshot after reconnecting.
 7. **Optimistic UI where it helps,** with the server's confirmed value always winning.
 8. **Read freely, write through the API.** RLS allows reads only. Every write goes through `apps/web/api/*`, which authenticates (sync token), validates with zod and returns `ApiResult` (`{ ok, data } | { ok, error }`), never leaking internals.
+9. **The map renderers never read game data directly.** They draw a `MapView` built by `apps/web/src/map/model.ts` from engine output (`DEFAULT_MAP`, `summarizeTeamDay`). When the night phase adds territory state to the engine contracts, only `model.ts` changes.
 
 ## Steps data flow
 
