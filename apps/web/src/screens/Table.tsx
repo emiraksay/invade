@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { DEFAULT_MAP, type BattleRecord, type GameSettings, type GeneralResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { TeamGeneral } from '../components/GeneralOrders';
@@ -5,6 +6,8 @@ import { describeEvent, type MilestoneEvent } from '../data/events';
 import { Countdown } from '../components/Countdown';
 import { SeasonBar } from '../components/SeasonBar';
 import { DecreeBanner } from '../components/DecreeBanner';
+import { TimeTravel } from '../components/TimeTravel';
+import { stateAt, timeline } from '../data/timeline';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { useGameByCode } from '../data/useGameByCode';
@@ -78,12 +81,21 @@ function Feed({ events, players, timezone }: { events: MilestoneEvent[]; players
 }
 
 /** The big screen itself, pure: given today's teams it renders the countdown, both columns and the battlefield. */
-export function TableView({ teams, settings, live, code, players = [], events = [], battles = [], today, generalPreload }: TableViewProps) {
+export function TableView({ teams: liveTeams, settings, live, code, players = [], events: liveEvents = [], battles: liveBattles = [], today, generalPreload }: TableViewProps) {
+  // Demo scrubber: null = live; otherwise the screen shows the day as it stood at that moment.
+  const [cursor, setCursor] = useState<number | null>(null);
+  const moments = useMemo(() => (today ? timeline(liveEvents, liveBattles, today) : []), [liveEvents, liveBattles, today]);
+  const moment = cursor === null ? null : moments[Math.min(cursor, moments.length - 1)];
+  const past = useMemo(() => (moment && today ? stateAt(liveEvents, liveBattles, players, today, moment.at) : null), [moment, liveEvents, liveBattles, players, today]);
+  const teams = past?.teams ?? liveTeams;
+  const events = past ? [...past.events].sort((a, b) => b.id - a.id) : liveEvents;
+  const battles = past?.battles ?? liveBattles;
   const refreshKey = `${teams.white.soldiers}:${teams.black.soldiers}:${events[0]?.id ?? 0}:${battles.length}`;
   const view = walkPhaseMapView(DEFAULT_MAP, teams, { battles, today });
   const joinUrl = `${window.location.origin}/join?code=${code}`;
   return (
     <main style={{ minHeight: '100%', padding: '32px 40px', display: 'grid', gap: 24, maxWidth: 1400, margin: '0 auto' }}>
+      <TimeTravel moments={moments} cursor={cursor} timezone={settings.timezone} onChange={setCursor} />
       <header style={{ textAlign: 'center' }}>
         <p className="display" style={{ margin: 0, fontSize: 44, letterSpacing: '0.04em' }}>INVADE</p>
         <Countdown timezone={settings.timezone} size={26} />
@@ -105,7 +117,8 @@ export function TableView({ teams, settings, live, code, players = [], events = 
           <TeamGeneral code={code} team="black" name={settings.teamNames.black} refreshKey={refreshKey} preload={generalPreload?.black} />
         </div>
       </div>
-      <Spotlight events={events} battles={battles} players={players} teamNames={settings.teamNames} />
+      {/* Remount when replay starts, so each step forward is a fresh event the spotlight shouts. */}
+      <Spotlight key={cursor === null ? 'live' : 'replay'} events={events} battles={battles} players={players} teamNames={settings.teamNames} />
       <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }} className="muted">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <JoinQr url={joinUrl} />
