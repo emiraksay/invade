@@ -90,4 +90,10 @@ export const supabaseRepo: Repo = {
       .map(toBattleRecord)
       .filter((b): b is BattleRecord => b !== null);
   },
+
+  async listEvents(gameId, type) {
+    const { data, error } = await db().from('events').select('id, payload, created_at').eq('game_id', gameId).eq('type', type).order('id');
+    if (error) throw error;
+    return data as { id: number; payload: unknown; created_at: string }[];
+  },
 };

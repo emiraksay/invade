@@ -186,3 +186,23 @@ describe('attack (POST /api/attack)', () => {
     expect((await attack(mem.repo, { token: kat, to: target.to, soldiers: 1 }, NOW)).ok).toBe(false);
   });
 });
+
+describe('director (POST /api/director)', () => {
+  it("issues one of today's live decrees with the template when Claude is unavailable", async () => {
+    const { director } = await import('./directorLive');
+    const { repo } = memoryRepo();
+    await joined(repo, 'Emir', 'white');
+    await joined(repo, 'Kat', 'black');
+    const saved = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    const r = await director(repo, { code: 'invade' }, NOW);
+    process.env.ANTHROPIC_API_KEY = saved;
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(['quiet', 'duel', 'all_hands', 'reinforcements']).toContain(r.data.decree.kind);
+      expect(r.data.writer).toBe('template');
+      expect(r.data.title.length).toBeGreaterThan(0);
+    }
+    expect(await director(repo, { code: 'nope' }, NOW)).toEqual({ ok: false, error: 'No game with that code' });
+  });
+});

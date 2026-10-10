@@ -10,6 +10,7 @@ import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { GeneralOrders } from '../components/GeneralOrders';
 import { SeasonBar } from '../components/SeasonBar';
+import { DecreeBanner } from '../components/DecreeBanner';
 import { HowToPlay, useFirstVisitHowTo } from '../components/HowToPlay';
 import { DemoSync } from '../components/DemoSync';
 import { AttackSheet } from '../components/AttackSheet';
@@ -116,6 +117,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
         <>
           <Countdown timezone={settings.timezone} />
           <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} seasonStart={settings.seasonStart} />
+          <DecreeBanner code={session.game.code} />
           <StatsBar stats={stats} />
           <div className="walk-map">
             <Battlefield
