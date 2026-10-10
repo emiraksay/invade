@@ -1795,6 +1795,14 @@ var init_war = __esm({
   }
 });
 
+// ../../packages/engine/src/director.ts
+var init_director = __esm({
+  "../../packages/engine/src/director.ts"() {
+    "use strict";
+    init_steps();
+  }
+});
+
 // ../../packages/engine/src/index.ts
 var init_src2 = __esm({
   "../../packages/engine/src/index.ts"() {
@@ -1806,6 +1814,7 @@ var init_src2 = __esm({
     init_time();
     init_pieces();
     init_war();
+    init_director();
   }
 });
 
