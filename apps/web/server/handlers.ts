@@ -11,6 +11,7 @@ import {
   type JoinResponse,
   type MeResponse,
   type Player,
+  type StepReport,
   type StepSource,
   type SubmitStepsResponse,
   type TeamId,
@@ -31,6 +32,8 @@ export interface Repo {
   /** Atomic keep-max upsert; returns stored steps before and after. */
   reportSteps(playerId: string, day: string, steps: number, source: StepSource): Promise<{ before: number; after: number }>;
   insertEvent(gameId: string, type: string, payload: unknown): Promise<void>;
+  listPlayers(gameId: string): Promise<Player[]>;
+  listStepReports(gameId: string, day: string): Promise<StepReport[]>;
 }
 
 const fail = (error: string): ApiResult<never> => ({ ok: false, error });

@@ -4,6 +4,7 @@ import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
+import { NudgeCard } from '../components/NudgeCard';
 import { loadSession } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
@@ -32,6 +33,7 @@ export function WalkPhase() {
       <Countdown timezone={settings.timezone} />
       <StatsBar stats={{ teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories }} />
       <MilestoneTrack me={me} />
+      <NudgeCard token={session.token} />
       <TeamList team={teams.white} name={settings.teamNames.white} myId={session.player.id} />
       <TeamList team={teams.black} name={settings.teamNames.black} myId={session.player.id} />
 

@@ -42,3 +42,31 @@ export interface JoinRequest {
 export interface JoinResponse extends MeResponse {
   token: string;
 }
+
+/**
+ * POST /api/nudge — who on my team is short of their next milestone, with a personal message to send.
+ * The engine picks the facts (who, how many steps, whether it unlocks the team bonus); Claude only writes the words.
+ */
+export interface NudgeRequest {
+  token: string;
+}
+export interface Nudge {
+  playerId: string;
+  name: string;
+  steps: number;
+  /** Steps to the next milestone. */
+  stepsToGo: number;
+  /** Soldiers that milestone adds. */
+  gain: number;
+  /** True when reaching it also raises the whole team's bonus. */
+  unlocksBonus: boolean;
+  /** Ready to send as-is (WhatsApp, iMessage…). */
+  message: string;
+}
+export interface NudgeResponse {
+  day: GameDay;
+  team: 'white' | 'black';
+  nudges: Nudge[];
+  /** 'claude' when the messages were written by the model, 'template' when the fallback text was used. */
+  writer: 'claude' | 'template';
+}

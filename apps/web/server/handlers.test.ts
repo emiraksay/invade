@@ -38,8 +38,14 @@ function memoryRepo() {
       return { before, after };
     },
     async insertEvent(_gameId, type, payload) { events.push({ type, payload }); },
+    async listPlayers() { return [...players]; },
+    async listStepReports(_gameId, day) {
+      return [...steps.entries()]
+        .filter(([k]) => k.endsWith(`|${day}`))
+        .map(([k, v]) => ({ playerId: k.split('|')[0]!, day, steps: v, source: 'demo' as const, reportedAt: day }));
+    },
   };
-  return { repo, events, players };
+  return { repo, events, players, steps };
 }
 
 const NOW = new Date('2026-10-10T10:00:00+02:00');
