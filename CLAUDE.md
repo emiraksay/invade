@@ -15,7 +15,7 @@ Docs: `docs/DECISIONS.md` (why), `docs/PRODUCT.md` (spec), `docs/ARCHITECTURE.md
 
 - `npm run dev`: app + local API at http://localhost:5173 (needs `apps/web/.env.local`, see `.env.example`)
 - `npm test` / `npm run typecheck` / `npm run lint`: run all three before opening a PR (CI enforces them)
-- Server code lives in `apps/web/server` (handlers are pure over a `Repo`, unit-tested); `apps/web/api/[route].ts` is the Vercel adapter.
+- Server code lives in `apps/web/server` (handlers are pure over a `Repo`, unit-tested). **After changing anything under `apps/web/server` or `packages/engine`, run `npm run build:api -w apps/web` and commit `apps/web/api/[route].js`** (the generated single-file bundle Vercel runs; CI fails if it's stale).
 - Steps come only from Apple Health via the "Invade Sync" Shortcut: see `docs/SHORTCUT.md`.
 
 ## Contracts
