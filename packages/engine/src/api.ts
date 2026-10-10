@@ -32,3 +32,13 @@ export interface MeResponse {
   player: Player;
   game: { id: string; code: string };
 }
+
+/** POST /api/join — a player joins the game and receives their private sync token (shown once). */
+export interface JoinRequest {
+  code: string;
+  name: string;
+  team: 'white' | 'black';
+}
+export interface JoinResponse extends MeResponse {
+  token: string;
+}

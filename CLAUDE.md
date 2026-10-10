@@ -9,6 +9,13 @@ Docs: `docs/PRODUCT.md` (spec), `docs/ARCHITECTURE.md` (stack, data flow, contra
 - `packages/engine`: pure TS game rules, shared types and API contracts. No UI/network imports. Tests: `npm test -w packages/engine`
 - `supabase/migrations`: DB schema
 
+## Commands
+
+- `npm run dev`: app + local API at http://localhost:5173 (needs `apps/web/.env.local`, see `.env.example`)
+- `npm test` / `npm run typecheck` / `npm run lint`: run all three before opening a PR (CI enforces them)
+- Server code lives in `apps/web/server` (handlers are pure over a `Repo`, unit-tested); `apps/web/api/[route].ts` is the Vercel adapter.
+- Steps come only from Apple Health via the "Invade Sync" Shortcut: see `docs/SHORTCUT.md`.
+
 ## Contracts
 
 `packages/engine/src/{types,index,api}.ts` and `supabase/migrations/*` are shared contracts. Don't change them casually; if a change is needed, tell the user to announce it to the team first.
