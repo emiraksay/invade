@@ -27,8 +27,8 @@ export function HowToPlay({ open, onClose }: { open: boolean; onClose: () => voi
     'A season is one week. Sunday midnight is the final.',
     `Walk: your Apple Health steps become soldiers. ${milestoneLine()}.`,
     bonusLine(),
-    "Your piece stands on the front line carrying today's soldiers.",
-    'Attack a neighbouring enemy territory: win chance = your soldiers ÷ (yours + defenders). Win it and you move in.',
+    'The island has 7 zones of different sizes: bigger zones are worth more of the map.',
+    'Tap an enemy zone next to yours to attack: win chance = your soldiers ÷ (yours + defenders). Win it and it is yours.',
     'The AI General tells you the best move.',
   ];
 

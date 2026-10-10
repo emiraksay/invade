@@ -55,7 +55,6 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
   // Attack: tap my piece -> attackable territories light up -> tap one -> the sheet.
-  const [aiming, setAiming] = useState(false);
   const [target, setTarget] = useState<AttackOption | null>(null);
   // Last milestone event I tapped through on the "soldiers arrive" screen (per player, on this phone).
   const seenKey = `invade:seen-arrival:${session.game.id}:${session.player.id}`;
@@ -88,25 +87,25 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const me = myTeam.members.find((m) => m.player.id === session.player.id) ?? summarizePlayerDay(session.player, 0);
   const view = walkPhaseMapView(DEFAULT_MAP, teams, { myId: session.player.id, battles, today: day });
   const territories = view.teams[mine].territories;
-  const options = useMemo(() => (aiming ? attackOptions(view.war, DEFAULT_MAP, session.player.id) : []), [aiming, view.war, session.player.id]);
-  const targets = useMemo(() => (aiming ? new Set(options.map((o) => o.to)) : null), [aiming, options]);
+  // Attack: tap an enemy zone next to yours (no pieces on the 7-zone map; the engine still knows where I stand).
+  const options = useMemo(() => attackOptions(view.war, DEFAULT_MAP, session.player.id), [view.war, session.player.id]);
   const myPiece = view.pieces.find((p) => p.isMe);
+  const [refused, setRefused] = useState<string | null>(null);
   const onTerritory = (t: TerritoryView) => {
-    if (aiming) {
-      const option = options.find((o) => o.to === t.id);
-      if (option) setTarget(option);
-      else setAiming(false);
+    setRefused(null);
+    const option = options.find((o) => o.to === t.id);
+    if (option) { setPicked(null); setTarget(option); return; }
+    if (t.owner !== mine) {
+      setRefused(!myPiece || myPiece.soldiers <= 0 ? 'No soldiers yet: walk to 5,000 steps to earn some' : `${t.name} is not next to your zone`);
+      setPicked(null);
       return;
     }
     setPicked((p) => (p?.id === t.id ? null : t));
   };
-  const hint = aiming
-    ? !myPiece || myPiece.soldiers <= 0
-      ? 'No soldiers yet: walk to 5,000 steps to earn some'
-      : options.length ? 'Tap a red territory to attack' : 'No enemy next to you'
-    : picked
-      ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === mine ? ' · your side' : ''}`
-      : myPiece ? 'Tap your piece to attack' : '';
+  const hint = refused
+    ?? (picked
+      ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''} · your side`
+      : options.length ? 'Tap an enemy zone next to yours to attack' : '');
   const arrival = unseenArrival(events, session.player.id, seenId, Date.now());
   const stats = { teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories };
 
@@ -120,10 +119,8 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           <div className="walk-map">
             <Battlefield
               view={view}
-              selected={aiming ? null : picked?.id}
+              selected={picked?.id}
               onTap={onTerritory}
-              targets={targets}
-              onPieceTap={() => { setPicked(null); setAiming((a) => !a); }}
             />
             <p className="subtitle walk-picked" aria-live="polite">
               {live ? hint : '○ Reconnecting…'}
@@ -163,7 +160,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           token={session.token}
           option={target}
           enemyName={settings.teamNames[other]}
-          onClose={() => { setTarget(null); setAiming(false); }}
+          onClose={() => setTarget(null)}
         />
       )}
       {listOpen && (
