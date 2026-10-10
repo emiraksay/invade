@@ -38,15 +38,30 @@ export function ConnectHealth() {
 
       <section className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
         <strong>2. Add the Invade Sync shortcut</strong>
-        <span className="muted" style={{ fontSize: 13 }}>When it asks for your code, paste it. Allow access to Health when asked.</span>
         {installUrl
           ? <a className="pill" style={{ textAlign: 'center', textDecoration: 'none' }} href={installUrl}>Add shortcut</a>
           : <span className="error">Shortcut link not configured yet</span>}
+        <span className="muted" style={{ fontSize: 13 }}>
+          Tap <b>Add Shortcut</b>. Then open <b>Invade Sync</b> in the Shortcuts app and replace
+          <b> PASTE-YOUR-CODE-HERE</b> in the first card (Text) with your code from step 1.
+        </span>
       </section>
 
       <section className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
         <strong>3. Sync once</strong>
         <a className="pill" style={{ textAlign: 'center', textDecoration: 'none' }} href={SYNC_SHORTCUT_URL}>Sync steps now</a>
+        <span className="muted" style={{ fontSize: 13 }}>
+          The first time, allow <b>Steps</b> in Health and allow the connection to invade.vercel.app.
+          Your steps appear in the game within seconds.
+        </span>
+      </section>
+
+      <section className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+        <strong>4. Sync automatically (recommended)</strong>
+        <span className="muted" style={{ fontSize: 13 }}>
+          Shortcuts → <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → pick a time, Daily, <b>Run Immediately</b> →
+          Run Shortcut <b>Invade Sync</b>. Add a few times (e.g. 10:00, 12:00, 14:00, 15:30).
+        </span>
       </section>
 
       <button className="pill pill-block" onClick={() => navigate('/walk')}>Go to the game</button>
