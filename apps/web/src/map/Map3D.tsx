@@ -7,6 +7,7 @@ import type { Line2 } from 'three-stdlib';
 import type { TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
+import { islandOutline } from './island';
 import { CROWN_FILL, CrownIcon } from './crown';
 
 /**
@@ -17,8 +18,12 @@ import { CROWN_FILL, CrownIcon } from './crown';
  */
 
 const SLAB = 5;                // thickness of each territory slab (map units)
-const REFLECTION_DEPTH = 70;   // how far each slab's glowing reflection reaches down (map units)
-const LIGHT_DIR = [-0.45, 0.89] as const; // xz direction the reflections glow toward (front-left, like the render)
+const REFLECTION_DEPTH = 80;   // how far the island's glowing reflection reaches down (map units)
+// The reflection plus wider, fainter copies (grow in map units): a cheap blur for its edges.
+const REFLECTION_BLUR = [
+  { grow: -SLAB_GAP, glow: 0.2 }, // flush with the outer slabs' sides
+  ...[0, 0.5, 1, 1.6, 2.3, 3.1].map((grow, i) => ({ grow, glow: 0.045 * Math.pow(0.72, i) })),
+];
 const STEP_MAX = 2.4;          // slabs sit at slightly different heights, like the Figma's broken ground
 const MAP_YAW = -0.14;         // radians: the Figma's map sits slightly diagonal
 const HQ_LIFT_PER_SOLDIER = 0.25;
@@ -71,31 +76,6 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
     return g;
   }, [shape, step]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  // The slab's reflection in the water (Figma): each side face continues down as a smooth glowing
-  // column, bright blue-white at the waterline fading to dark; faces turned to the light glow more,
-  // with a faint rainbow edge. Drawn additively, so it reads as light, not as a solid wall.
-  const reflection = useMemo(() => {
-    const g = new THREE.ExtrudeGeometry(shape, { depth: REFLECTION_DEPTH, steps: 12, bevelEnabled: false });
-    g.rotateX(Math.PI / 2);
-    g.translate(0, step - SLAB, 0);
-    const pos = g.getAttribute('position');
-    const nor = g.getAttribute('normal');
-    const colors = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) {
-      const depth = Math.min(1, Math.max(0, (step - SLAB - pos.getY(i)) / REFLECTION_DEPTH));
-      const fade = Math.pow(1 - depth, 1.8);
-      const facing = Math.max(0, nor.getX(i) * LIGHT_DIR[0] + nor.getZ(i) * LIGHT_DIR[1]); // 0..1
-      const v = 0.1 + 0.36 * facing * facing;
-      const fringe = Math.max(0, -nor.getX(i)) * 0.18 * (1 - depth); // faint rainbow on left-facing edges
-      colors[i * 3] = fade * v * (0.86 - fringe);
-      colors[i * 3 + 1] = fade * v * (0.93 + fringe);
-      colors[i * 3 + 2] = fade * v;
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    return g;
-  }, [shape, step]);
-  useEffect(() => () => reflection.dispose(), [reflection]);
-  const reflectionMat = useRef<THREE.MeshBasicMaterial>(null);
   const glints = useRef<Line2>(null);
 
   const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
@@ -120,7 +100,6 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
       m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.15 + 0.4 * t.charge);
       if (rim.current) rim.current.material.opacity = 0.1 + 0.25 * t.charge + breath * (0.2 + 0.45 * t.charge);
       // The reflection breathes with its slab, and the waterline glints drift like small waves.
-      if (reflectionMat.current) reflectionMat.current.opacity = 0.75 + 0.25 * breath * (0.4 + t.charge);
       if (glints.current && !reducedMotion) glints.current.material.dashOffset = -clock.elapsedTime * 0.6;
       if (age < RIPPLE_MS) moving = true;
     }
@@ -162,10 +141,6 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
         <meshStandardMaterial attach="material-1" color={SIDE_COLOR[t.owner]} roughness={0.45} metalness={0.1} />
       </mesh>
       {/* Thin bright rim where the top face meets the side, plus a faint glow as the team charges. */}
-      <mesh geometry={reflection} raycast={() => null} renderOrder={1}>
-        <meshBasicMaterial attach="material-0" visible={false} />
-        <meshBasicMaterial attach="material-1" ref={reflectionMat} vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
-      </mesh>
       {/* Waterline glints: a broken, sparkling white line where the slab meets the water. */}
       <Line ref={glints} points={waterline} color="#ffffff" lineWidth={1.6} transparent opacity={0.8} dashed dashSize={0.9} gapSize={0.7} depthWrite={false} />
       <Line ref={rim} points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
@@ -176,6 +151,46 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
           <CrownIcon size={34} fill={CROWN_FILL[t.owner]} />
         </Html>
       )}
+    </group>
+  );
+}
+
+/**
+ * The island's reflection in the water (Figma): one smooth glowing curtain hanging from the whole
+ * coastline, blue-white at the waterline and fading to dark. Drawn once for the island (not per tile,
+ * so overlaps never stack into stripes), plus a few wider, fainter copies that blur its edges.
+ */
+function Reflection({ w, h }: { w: number; h: number }) {
+  const layers = useMemo(() => {
+    const coast = islandOutline(w, h);
+    return REFLECTION_BLUR.map(({ grow, glow }) => {
+      const pts = coast.map(([x, y]) => {
+        const dx = x - w / 2, dy = y - h / 2, d = Math.hypot(dx, dy) || 1;
+        return new THREE.Vector2(x + (dx / d) * grow, y + (dy / d) * grow);
+      });
+      const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: REFLECTION_DEPTH, steps: 14, bevelEnabled: false });
+      g.rotateX(Math.PI / 2);
+      g.translate(0, 0, 0); // top hidden inside the slabs, so the glow starts right under their sides
+      const pos = g.getAttribute('position');
+      const colors = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        const depth = Math.min(1, Math.max(0, (-SLAB - pos.getY(i)) / REFLECTION_DEPTH));
+        const v = glow * Math.pow(1 - depth, 1.5); // smooth, gentle fade
+        colors[i * 3] = v * 0.88; colors[i * 3 + 1] = v * 0.94; colors[i * 3 + 2] = v; // cold blue-white
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      return g;
+    });
+  }, [w, h]);
+  useEffect(() => () => layers.forEach((g) => g.dispose()), [layers]);
+  return (
+    <group position={[-w / 2, 0, -h / 2]}>
+      {layers.map((g, i) => (
+        <mesh key={i} geometry={g} raycast={() => null} renderOrder={1}>
+          <meshBasicMaterial attach="material-0" visible={false} />
+          <meshBasicMaterial attach="material-1" vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -272,6 +287,7 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
         <directionalLight position={[-40, 120, 80]} intensity={1.1} />
         {/* Centre the map on the origin: x in [-w/2, w/2], z in [-h/2, h/2] (Black far, White near). */}
         <group rotation={[0, MAP_YAW, 0]}>
+        <Reflection w={w} h={h} />
         <group position={[-w / 2, 0, -h / 2]}>
           {view.territories.map((t) => (
             <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} />
