@@ -1,7 +1,9 @@
 # Invade
 
-Hackathon project: friends put virtual coins into a pot, walk in real life to build armies, and battle over a map for the pot. Pitch line: "Invade: bet on your own steps."
-Docs: `docs/PRODUCT.md` (spec), `docs/ARCHITECTURE.md` (stack, data flow, contracts), `docs/DESIGN.md` (Figma screens).
+Hackathon project (demo 10 Oct 2026, 16:00; feature freeze 14:30). Two teams of friends; every step you take today, read from Apple Health, becomes soldiers your team uses to take a shared map. Tagline: "Play. Walk. Conquer."
+
+**Read `docs/DECISIONS.md` before proposing any big change.** Don't undo a logged decision without Emir's OK.
+Docs: `docs/DECISIONS.md` (why), `docs/PRODUCT.md` (spec), `docs/ARCHITECTURE.md` (stack, data flow, contracts), `docs/DESIGN.md` (Figma screens).
 
 ## Layout
 
