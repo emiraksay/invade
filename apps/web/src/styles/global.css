@@ -272,3 +272,18 @@ button, input { font: inherit; color: inherit; }
 /* Figma LOG screen rows: time · what happened · dot · steps or soldiers. */
 .log-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: #000; border: 1px solid rgba(255,255,255,0.12); font-size: 15px; }
 .log-dot { width: 16px; height: 16px; border-radius: 50%; background: #e5484d; flex: none; }
+/* Figma Join: the code field with its paste icon on the right. */
+.field-row { position: relative; }
+.field-row .field { padding-right: 56px; }
+.field-paste {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 48px; height: 48px; border: none; background: none; cursor: pointer;
+  color: var(--color-text-secondary); font-size: 22px; line-height: 1;
+}
+.field-paste:active { color: var(--color-text-primary); }
+
+/* Figma SignIn: the island sits between the title and the tip; it fits by height, no labels yet. */
+.splash-island { height: 54dvh; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+.splash-island > div { height: 100%; margin: 0; }
+.splash-island svg { height: 100%; width: auto; }
+.splash-island text, .splash-island circle { display: none; }
