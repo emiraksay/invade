@@ -1,6 +1,7 @@
 // The war: player pieces attack neighbouring enemy territories. Decision 4: odds roll,
 // P(win) = attackers / (attackers + defenders), rolled on the server. Facts are stored as
 // BattleRecords (events of type 'battle'); the map state is always derived by replaying them.
+import { DEFAULT_MAP, polygonArea } from './map';
 import { STARTING_GARRISON, startingPositions } from './pieces';
 import type { GameDay, MapDef, Player, TeamId } from './types';
 
@@ -84,6 +85,8 @@ export function warState(
 
   const ordered = [...battles].sort((a, b) => a.at.localeCompare(b.at) || a.id - b.id);
   for (const b of ordered) {
+    // A battle for a territory that is not on this map (fought on an earlier map) is ignored.
+    if (!(b.to in owner)) continue;
     const piece = pieces[b.playerId];
     if (piece && b.day === today) piece.available = Math.max(0, piece.available - b.attackers);
     if (b.won) {
@@ -114,10 +117,15 @@ export function attackOptions(war: WarState, map: MapDef, playerId: string): Att
     }));
 }
 
-/** Share of the map a team holds (the 51% win condition). */
-export function territoryShare(war: WarState, team: TeamId): number {
-  const all = Object.values(war.owner);
-  return all.length ? all.filter((t) => t === team).length / all.length : 0;
+/** Share of the land a team holds, weighted by each territory's area (the 51% win condition). */
+export function territoryShare(war: WarState, team: TeamId, map: MapDef = DEFAULT_MAP): number {
+  let mine = 0, all = 0;
+  for (const t of map.territories) {
+    const area = polygonArea(t.polygon);
+    all += area;
+    if (war.owner[t.id] === team) mine += area;
+  }
+  return all ? mine / all : 0;
 }
 
 /** A stored event row (type 'battle', written by POST /api/attack) -> BattleRecord, or null if malformed. */

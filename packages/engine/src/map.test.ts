@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MAP, generateMap } from './map';
+import { DEFAULT_MAP, generateMap, polygonArea } from './map';
 import type { MapDef, TeamId } from './types';
 
 const byId = (map: MapDef) => new Map(map.territories.map((t) => [t.id, t]));
@@ -10,21 +10,32 @@ describe('generateMap', () => {
     expect(generateMap({ seed: 8 })).not.toEqual(generateMap({ seed: 7 }));
   });
 
-  it('has 24 named territories with unique ids and real polygons', () => {
+  it('has 7 named zones with unique ids and real polygons', () => {
     const ids = new Set(DEFAULT_MAP.territories.map((t) => t.id));
-    expect(ids.size).toBe(24);
+    expect(ids.size).toBe(7);
     for (const t of DEFAULT_MAP.territories) {
       expect(t.name).toBeTruthy();
       expect(t.polygon.length).toBeGreaterThanOrEqual(3);
     }
   });
 
-  it('splits territories evenly with one HQ per team', () => {
+  it('gives each team about half the land, in zones of clearly different sizes, with one HQ each', () => {
+    const areas = DEFAULT_MAP.territories.map((t) => polygonArea(t.polygon));
+    const total = areas.reduce((a, b) => a + b, 0);
     for (const team of ['white', 'black'] as TeamId[]) {
       const mine = DEFAULT_MAP.territories.filter((t) => t.team === team);
-      expect(mine).toHaveLength(12);
+      const share = mine.reduce((a, t) => a + polygonArea(t.polygon), 0) / total;
+      expect(Math.abs(share - 0.5)).toBeLessThan(0.03);
+      expect(mine.length).toBeGreaterThanOrEqual(3);
       expect(mine.filter((t) => t.isHq)).toHaveLength(1);
     }
+    expect(Math.max(...areas) / Math.min(...areas)).toBeGreaterThan(2);
+  });
+
+  it('still splits by count when asked (the old 24-territory map)', () => {
+    const old = generateMap();
+    expect(old.territories).toHaveLength(24);
+    for (const team of ['white', 'black'] as TeamId[]) expect(old.territories.filter((t) => t.team === team)).toHaveLength(12);
   });
 
   it('has symmetric neighbours and every territory has at least one', () => {
