@@ -11,8 +11,8 @@ Snapshots are in `docs/design/`: `06-base-map.png` is the Base walk screen, `09-
 |---|---|---|
 | Join/Create (263:1203) + team choice | `/join` | ✅ built (skeleton styling) |
 | (MVP "Connect Health" onboarding) | `/connect` | ✅ built |
-| **Base (298:26565) + LOG bottom bar (457:3277)** | `/walk`: the **core screen** | ✅ skeleton → issue #6 (Figma fidelity + Map3D) |
-| Base, large, for the projector | `/table` | issue #7 |
+| **Base (298:26565) + LOG bottom bar (457:3277)** | `/walk`: the **core screen** | ✅ built: map in SVG + three.js (decision #11) |
+| Base, large, for the projector | `/table` | ✅ built |
 | SignIn / splash (263:1186) | — | later |
 | MatchLobby owner/non-owner, kick popup, LobbySettings | — | later (one fixed campaign today) |
 | Idle (team stats), LOG list | — | later |
@@ -33,5 +33,12 @@ The Figma map is a **set of rendered images** (the `Map` component has `Map`, `i
 - `image 5` and `Group 458 / image 1` are the **dark glowing renders** we match. `image 5` shows a Place state with green "+" markers on the territories.
 
 We build the map **live in three.js**, matching the dark render: extruded tiles, glowing white edges, pillar height = soldiers. The territory polygons come from `generateMap()` in the engine. The renders are used as the visual reference and for splash art.
+
+### How the map is built
+
+- View model: `walkPhaseMapView` (`apps/web/src/map/model.ts`) takes the `MapDef` plus each team's `soldiers`/`maxSoldiers` from `summarizeTeamDay` and returns a `MapView`: per territory the owner, the HQ flag, the soldiers (today's sit in the HQ) and a 0..1 charge that spreads from the HQ toward the front line as the team nears its daily max. The renderers draw only this.
+- Two renderers behind one `Battlefield` component: `Map3D` (three.js, lazy chunk) when WebGL works; `MapSvg` (2.5D) is shown until the first 3D frame paints and is the fallback without WebGL. Same props either way.
+- Dev-only previews: `/preview/map` and `/preview/table` (not in production builds).
+- Still differs from the Figma render: rectangular outline (needs a jagged boundary in the engine's `generateMap`, Emir's area), no bloom, no iridescent streaks.
 
 Figma pages: **Risk x Walk** is the Version A design (the game). **MVP** holds the cousin's written spec and the balancing table, which our rules borrow from. **Ideas, Sctech and Wireframe** hold earlier explorations.
