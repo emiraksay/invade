@@ -180,7 +180,7 @@ button, input { font: inherit; color: inherit; }
 .member-stats dd { margin: 0; }
 
 /* OPEN LIST sheet: slides up over the map. */
-.sheet-backdrop { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 21; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
   width: 100%; max-width: var(--size-frame-width); max-height: 82dvh; overflow-y: auto;
   display: grid; gap: 18px; padding: 20px 20px calc(env(safe-area-inset-bottom) + 20px);

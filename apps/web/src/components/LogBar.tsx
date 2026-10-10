@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { BattleRecord, Player } from '@invade/engine';
 import { LogSheet } from './LogSheet';
 import { describeEvent, type MilestoneEvent } from '../data/events';
@@ -53,7 +54,8 @@ export function LogBar({ events, players, timezone, battles = [], today }: { eve
         )}
       </button>
       {arrow(-1, 'Later')}
-      <LogSheet open={open} onClose={() => setOpen(false)} events={events} battles={battles} players={players} timezone={timezone} today={today} />
+      {/* Portal: the strip is sticky (its own stacking context), so the sheet must live at the root to cover the nav. */}
+      {createPortal(<LogSheet open={open} onClose={() => setOpen(false)} events={events} battles={battles} players={players} timezone={timezone} today={today} />, document.body)}
     </div>
   );
 }
