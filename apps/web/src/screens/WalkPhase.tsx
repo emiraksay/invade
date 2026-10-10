@@ -42,9 +42,11 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
   // Last milestone event I tapped through on the "soldiers arrive" screen (per player, on this phone).
-  const seenKey = `invade:seen-arrival:${session.player.id}`;
+  const seenKey = `invade:seen-arrival:${session.game.id}:${session.player.id}`;
   const [seenId, setSeenId] = useState<number | null>(() => {
-    const v = Number(localStorage.getItem(seenKey));
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(seenKey); } catch { /* private mode / blocked storage: no memory, fine */ }
+    const v = Number(raw);
     return Number.isFinite(v) && v > 0 ? v : null;
   });
 
@@ -97,7 +99,10 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           key={arrival.id}
           ev={arrival}
           teamSoldiers={myTeam.soldiers}
-          onDone={() => { localStorage.setItem(seenKey, String(arrival.id)); setSeenId(arrival.id); }}
+          onDone={() => {
+            setSeenId(arrival.id); // dismiss first: storage may throw (private mode, Block All Cookies)
+            try { localStorage.setItem(seenKey, String(arrival.id)); } catch { /* shown again next load, acceptable */ }
+          }}
         />
       )}
       <NavBar tab={tab} onTab={(t) => { setTab(t); setListOpen(false); }} />

@@ -24,10 +24,29 @@ describe('unseenArrival', () => {
   });
 });
 
+describe('unseenArrival edge cases', () => {
+  it('returns null with no events at all', () => {
+    expect(unseenArrival([], 'me', null, NOW)).toBeNull();
+    expect(unseenArrival([], 'me', 3, NOW)).toBeNull();
+  });
+  it('treats a seenId above every event id (database reset) like a first visit', () => {
+    expect(unseenArrival([ev(2, 'me', 1000)], 'me', 999, NOW)?.id).toBe(2);
+    expect(unseenArrival([ev(2, 'me', FRESH_MS + 1)], 'me', 999, NOW)).toBeNull();
+  });
+  it('picks the newest of my events even when they are not sorted', () => {
+    expect(unseenArrival([ev(9, 'me', 100), ev(4, 'me', 5000), ev(7, 'me', 300)], 'me', 4, NOW)?.id).toBe(9);
+  });
+  it('never celebrates an event with an unparseable timestamp on a first visit', () => {
+    expect(unseenArrival([{ ...ev(2, 'me', 0), at: 'not a date' }], 'me', null, NOW)).toBeNull();
+  });
+});
+
 describe('reachedMilestone', () => {
   it('finds the highest milestone reached', () => {
     expect(reachedMilestone(10_050)?.steps).toBe(10_000);
     expect(reachedMilestone(12_900)?.steps).toBe(12_000);
     expect(reachedMilestone(4_999)).toBeNull();
+    expect(reachedMilestone(5_000)?.steps).toBe(5_000);
+    expect(reachedMilestone(12_001)?.steps).toBe(12_000);
   });
 });

@@ -13,7 +13,8 @@ export function unseenArrival(events: readonly MilestoneEvent[], myId: string, s
   const mine = events.filter((e) => e.playerId === myId && e.gained > 0);
   const newest = mine.reduce<MilestoneEvent | null>((best, e) => (!best || e.id > best.id ? e : best), null);
   if (!newest) return null;
-  if (seenId === null) return now - Date.parse(newest.at) < FRESH_MS ? newest : null;
+  // No memory, or a memory from a reset database (seenId above every id): only a fresh event counts.
+  if (seenId === null || seenId > newest.id) return now - Date.parse(newest.at) < FRESH_MS ? newest : null;
   return newest.id > seenId ? newest : null;
 }
 
