@@ -8,7 +8,7 @@ describe('playerColors', () => {
   it('gives every player (up to 8) their own colour, in piece order', () => {
     const ids = Array.from({ length: 8 }, (_, i) => `p${i}`);
     const colors = playerColors(ids.map(piece));
-    expect(ids.map((id) => colors.get(id))).toEqual([...PLAYER_COLORS]);
+    expect(ids.map((id) => colors.get(id))).toEqual(PLAYER_COLORS.slice(0, 8));
     expect(new Set(colors.values()).size).toBe(8);
   });
 });

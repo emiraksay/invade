@@ -3,11 +3,23 @@ import type { Point } from '@invade/engine';
 import type { MapView, PieceView } from './model';
 
 /**
- * Each player's ring colour. The first three are the cousin's Sctech Place frame (red, blue, green
- * rings around the avatars); the rest continue in the same pure, saturated style.
- * Display only: handed out in the order of view.pieces, so up to 8 players never share a colour.
+ * Each player's ring colour, from the Figma "Walk War" join screen palette (12 swatches the player
+ * will pick from). Until the pick is stored, colours are handed out in the order of view.pieces;
+ * white and black are left out because they vanish on the white/dark discs.
+ * Display only: up to 8 players never share a colour.
  */
-export const PLAYER_COLORS = ['#ff2424', '#0004ff', '#00ff44', '#ffe500', '#ff00e5', '#00e5ff', '#ff8a00', '#8a00ff'] as const;
+export const PLAYER_COLORS = [
+  '#2563ff', // blue
+  '#ee8580', // pink
+  '#59a22f', // green
+  '#6b5596', // lavender
+  '#b4ab6c', // khaki
+  '#555555', // grey
+  '#6e6a45', // olive
+  '#5e1052', // plum
+  '#530a07', // dark red
+  '#0a1a78', // navy
+] as const;
 
 export function playerColors(pieces: readonly PieceView[]): Map<string, string> {
   return new Map(pieces.map((p, i) => [p.playerId, PLAYER_COLORS[i % PLAYER_COLORS.length]!]));
