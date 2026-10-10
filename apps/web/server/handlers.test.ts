@@ -77,6 +77,14 @@ describe('join', () => {
     expect(await join(repo, { code: 'NOPE', name: 'Emir', team: 'white' })).toEqual({ ok: false, error: 'No game with that code' });
   });
 
+  it('refuses a name that already joined, whatever the case or team', async () => {
+    const { repo } = memoryRepo();
+    await joined(repo, 'Kateryna', 'black');
+    const again = await join(repo, { code: 'INVADE', name: 'kateryna ', team: 'white' });
+    expect(again).toMatchObject({ ok: false });
+    expect(!again.ok && again.error).toContain('already in this game');
+  });
+
   it('caps a team at 4 players', async () => {
     const { repo } = memoryRepo();
     for (const n of ['a', 'b', 'c', 'd']) await joined(repo, n);

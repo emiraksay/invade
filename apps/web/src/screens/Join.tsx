@@ -13,6 +13,21 @@ export function Join() {
   const [team, setTeam] = useState<TeamId | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [myCode, setMyCode] = useState('');
+
+  /** Returning player on a new device: restore their own player from their private code. */
+  async function restore(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    const token = myCode.trim().toUpperCase();
+    const r = await api.me(token);
+    setBusy(false);
+    if (!r.ok) return setError(r.error === 'Unknown code' ? 'That code is not in any game. Check it on your other device (Connect screen).' : r.error);
+    saveSession({ token, player: r.data.player, game: r.data.game });
+    navigate('/walk');
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -24,6 +39,19 @@ export function Join() {
     if (!r.ok) return setError(r.error);
     saveSession({ token: r.data.token, player: r.data.player, game: r.data.game });
     navigate('/connect');
+  }
+
+  if (returning) {
+    return (
+      <form className="screen" onSubmit={restore}>
+        <h1 className="display title">Welcome back</h1>
+        <p className="subtitle">Enter your private code (INV-…). It's on the Connect screen and in your Invade Sync shortcut.</p>
+        <input className="field" value={myCode} onChange={(e) => setMyCode(e.target.value)} autoCapitalize="characters" autoComplete="off" placeholder="INV-XXXX-XXXX-XXXX" />
+        <p className="error" role="alert">{error}</p>
+        <button className="pill pill-block" type="submit" disabled={busy || myCode.trim().length < 8}>{busy ? 'Checking…' : 'Continue'}</button>
+        <button className="pill pill-block" type="button" onClick={() => { setReturning(false); setError(''); }}>Back</button>
+      </form>
+    );
   }
 
   return (
@@ -56,6 +84,9 @@ export function Join() {
       <p className="error" role="alert">{error}</p>
       <button className="pill pill-block" type="submit" disabled={busy || !name.trim()}>
         {busy ? 'Joining…' : 'Join game'}
+      </button>
+      <button className="subtitle" type="button" onClick={() => { setReturning(true); setError(''); }} style={{ background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>
+        I already joined (new phone or browser)
       </button>
     </form>
   );
