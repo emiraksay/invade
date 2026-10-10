@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { DEFAULT_MAP, MAX_SOLDIERS_PER_PLAYER, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, MAX_SOLDIERS_PER_PLAYER, summarizeTeamDay, type GameSettings, type Player, type StepReport, type TeamId } from '@invade/engine';
+import { TableView } from './Table';
 import { Battlefield, type MapMode } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 
@@ -34,4 +35,25 @@ export function MapPreview() {
       ))}
     </main>
   );
+}
+
+const FAKE_PLAYERS: Player[] = [
+  { id: 'w1', name: 'Kateryna', team: 'white' }, { id: 'w2', name: 'Costi', team: 'white' },
+  { id: 'w3', name: 'Varvara', team: 'white' }, { id: 'b1', name: 'Emir', team: 'black' },
+  { id: 'b2', name: 'Hasan', team: 'black' }, { id: 'b3', name: 'Selin', team: 'black' },
+];
+const FAKE_STEPS: Record<string, number> = { w1: 11_240, w2: 6_120, w3: 3_400, b1: 12_900, b2: 4_980, b3: 0 };
+const FAKE_SETTINGS: GameSettings = {
+  campaignDays: 30, winThreshold: 0.51, walkPhaseHours: 24, timezone: 'Europe/Madrid', teamNames: { white: 'White', black: 'Black' },
+};
+
+/** Dev only (`/preview/table`): the projector view with fake players, no Supabase. */
+export function TablePreview() {
+  const day = '2026-10-10';
+  const reports: StepReport[] = FAKE_PLAYERS.map((p) => ({ playerId: p.id, day, steps: FAKE_STEPS[p.id] ?? 0, source: 'demo', reportedAt: day }));
+  const teams = {
+    white: summarizeTeamDay('white', FAKE_PLAYERS, reports, day),
+    black: summarizeTeamDay('black', FAKE_PLAYERS, reports, day),
+  };
+  return <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" />;
 }
