@@ -118,9 +118,14 @@ button, input { font: inherit; color: inherit; }
   /* room for the floating navbar (49px + 12px from the bottom) */
   padding-bottom: calc(env(safe-area-inset-bottom) + 12px + var(--size-navbar-h) + 12px);
 }
-/* The map fills what is left and is clipped there, so the screen never grows past the phone. */
-.walk-map { flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-.walk-picked { position: absolute; left: 0; right: 0; bottom: 0; min-height: 18px; }
+/* The map fills what is left and is clipped there, so the screen never grows past the phone.
+   Its bottom fades to the background, so the reflection always dies out softly, never a hard cut. */
+.walk-map {
+  flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 99%);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent 99%);
+}
+.walk-picked { position: absolute; left: 0; right: 0; top: 0; min-height: 18px; z-index: 1; }
 .walk-scroll {
   flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px;
   /* Figma Idle: the list fades out under the navbar */
@@ -245,3 +250,10 @@ button, input { font: inherit; color: inherit; }
 .arrive-tap { margin: 48px 0 0; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; transition: opacity 400ms ease; }
 @keyframes arrive-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes arrive-march { 0% { opacity: 0; transform: translateX(-70px); } 20% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(90px) scale(0.6); } }
+/* A teammate needs a nudge: a white NUDGE tag by their name, a white dot on the navbar helmet.
+   Not red: in the Figma LOG, red circles are armies and attacks. */
+.nudge-dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); flex: none; }
+.nudge-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 4px; color: #fff; }
+.nav-zone { position: relative; }
+.nav-dot { position: absolute; top: 8px; left: calc(50% + 10px); }
+.nudge-note { display: grid; gap: 10px; margin: 0 16px 14px 46px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.18); }
