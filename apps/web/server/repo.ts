@@ -7,8 +7,9 @@ let client: SupabaseClient | null = null;
 
 function db(): SupabaseClient {
   if (client) return client;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Trim: values pasted into dashboards often carry stray spaces/newlines.
+  const url = process.env.SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
   client = createClient(url, key, { auth: { persistSession: false } });
   return client;
