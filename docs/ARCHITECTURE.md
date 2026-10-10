@@ -4,59 +4,51 @@
 
 | Layer | Choice | Why |
 |---|---|---|
-| App | Vite + React + TypeScript, mobile-first PWA, deployed on Vercel | Opens from a link/QR with no install; the same app runs on the Mac (Table view) and on iPhones (Player view) |
-| Game rules | `packages/engine`: pure TypeScript, no UI or network code, unit-tested with Vitest | Shared by the app (odds, previews) and the server (authoritative state) |
-| Server | Vercel functions in `apps/web/api/*` (Node) | Imports the engine directly; holds the secret keys |
-| Data + live sync | Supabase: Postgres, anonymous auth, Realtime | Everyone sees state changes instantly |
-| AI | Claude API, called from the server only | The dealer's lines, the nightly recap, the odds advice |
-| Steps | The browser's motion sensor on iPhone (`DeviceMotionEvent`, needs one permission tap) plus a simulated source in demo mode | Native HealthKit is the post-hackathon roadmap |
+| App | Vite + React + TypeScript, mobile-first, on Vercel | Opens from a link with no install; one app for the iPhone (Player view) and the Mac (big screen) |
+| Rules | `packages/engine`: pure TypeScript, Vitest | One rulebook used by the server (the truth) and the app (preview) |
+| Server | Vercel functions in `apps/web/api/*` | Imports the engine directly and holds the secrets |
+| Data and live sync | Supabase: Postgres, RLS, Realtime | Every screen updates within about a second |
+| Steps | **Apple Health via the "Invade Sync" iOS Shortcut** | Web apps can't read HealthKit. A Shortcut can, and posts today's total to our API |
+| AI | Claude API, server-side only | Nudges first; strategist and commentator later |
 
-## Two views, one app
+## How game data works (follow these rules)
 
-| Route | Device | Shows |
-|---|---|---|
-| `/` | phone | Splash, profile (name and colour), create or join a game |
-| `/lobby/:code` | phone | Two team lists, host controls (switch, kick, ban), settings |
-| `/play/:code` | phone | Player view: Walk Phase timer and step counter, then Place → Attack → Move, team stats, nav bar |
-| `/table/:code` | Mac / projector | Table view: the big map, dice animations, live odds, the dealer's voice, the battle log, a QR code to join |
+1. **The server is the source of truth.** Clients send facts (step totals) and intentions (night orders, later); the server validates, applies the engine and stores.
+2. **Store facts, derive the rest.** Tables hold `step_reports` and `events`. Soldiers, team bonus, team totals and map fill are computed by the engine (`summarizeTeamDay`) and never stored as truth.
+3. **One rulebook.** Never re-implement a rule in the UI; import it from `@invade/engine`.
+4. **Idempotent writes.** The Shortcut sends *cumulative* steps for the day. `report_steps()` keeps the max per (player, day) atomically, so resends never double-count.
+5. **The server owns the clock.** The game day is computed in the game timezone (`gameDayOf`); phase deadlines are server timestamps.
+6. **Snapshot, then subscribe.** Load state once, then apply Realtime changes; reload the snapshot after reconnecting.
+7. **Optimistic UI where it helps,** with the server's confirmed value always winning.
+8. **Read freely, write through the API.** RLS allows reads only. Every write goes through `apps/web/api/*`, which authenticates (sync token), validates with zod and returns `ApiResult` (`{ ok, data } | { ok, error }`), never leaking internals.
 
-## Data flow
+## Steps data flow
 
 ```
-phone/mac ──reads──▶ Supabase (games.state, players, events) ◀──Realtime── everyone
-    │
-    └──writes──▶ POST /api/* (Vercel) ──▶ engine.applyAction(state, action)
-                                       ──▶ UPDATE games SET state, version = version + 1 WHERE version = expected
-                                       ──▶ INSERT events (battle, captured, steps_converted, …)
-                                       ──▶ /api/dealer → Claude → INSERT events (dealer_line)
+Apple Health ── "Invade Sync" Shortcut (automation at set times, or the in-app Sync button)
+   └─ POST /api/steps { token, day, steps }
+        → hash the token → look up the player in player_secrets
+        → zod validation (0 ≤ steps ≤ 100k, day within ±1 of the server's game day)
+        → report_steps(): atomic keep-max → before/after
+        → engine soldiersGained(before, after) > 0 → INSERT events { type: 'milestone' }
+Supabase Realtime ── step_reports and events changes ──▶ every open screen
+Screens ── engine.summarizeTeamDay(...) ──▶ team totals, soldiers, map fill
 ```
 
-- **The server is the only writer.** Clients never write game state directly (RLS blocks it).
-- **Optimistic concurrency:** each action sends `expectedVersion`. On a `409 conflict` the client refetches and retries.
-- **The Move Phase is turn-based** (`activeTeam`, then `moveStep`: place → attack → fortify) so two phones can't race each other.
-- **Randomness** lives only on the server (an injected `Rng`), so dice can't be faked from a phone.
+**Apple Watch:** Health stores steps from both the iPhone and the Watch. The Shortcut counts iPhone-recorded steps only, to avoid double counting (verified against the Health app).
 
-## Contracts (change only with a heads-up in chat)
+## Contracts (announce changes in chat before merging)
 
-- `packages/engine/src/types.ts`: GameState, Player, Territory, actions, events
-- `packages/engine/src/index.ts`: engine function signatures
-- `packages/engine/src/api.ts`: HTTP request and response types
-- `supabase/migrations/0001_init.sql`: DB schema and RLS
-
-## AI: what is code and what is the LLM
-
-| Feature | Computed by code | What the LLM does |
-|---|---|---|
-| Handicap | `computeHandicap`: median of recent walk phases → personal steps-per-soldier | Nothing (it's transparent maths) |
-| Battle odds | `battleOdds`: exact dynamic programming over Risk dice | Nothing |
-| Season odds | `seasonOdds`: Monte Carlo simulation | Turns the numbers into advice: "Walk 4,000 more steps to flip it" |
-| Anti-cheat | `assessSteps`: heuristics on cadence and regularity | Nothing |
-| Dealer | — | Casino-host lines, taunts and the nightly recap; spoken through the browser's built-in speech synthesis |
+- `packages/engine/src/types.ts`: domain types
+- `packages/engine/src/steps.ts`: milestones, cap, team bonus, keep-max rule
+- `packages/engine/src/map.ts`: the deterministic map
+- `packages/engine/src/api.ts`: HTTP request/response types and `ApiResult`
+- `supabase/migrations/*`: the schema. **One owner** (backend) creates migrations, to avoid ordering clashes between branches.
 
 ## Environment variables (`.env.example`)
 
 | Name | Where | Secret? |
 |---|---|---|
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | client | no (public by design) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Vercel only | **yes** |
-| `ANTHROPIC_API_KEY` | Vercel only | **yes** |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Vercel functions only | **yes** |
+| `ANTHROPIC_API_KEY` | Vercel functions only | **yes** |

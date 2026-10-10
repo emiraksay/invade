@@ -1,40 +1,66 @@
 # Invade: product spec
 
-**One line:** Friends put coins into a pot, walk in real life to build armies, and battle over a map for the pot.
-**Pitch line:** "Invade: bet on your own steps."
+**One purpose:** every step you take today becomes strength your team uses tonight to take the map.
+**Tagline (Figma splash):** "Play. Walk. Conquer."
 
-**Why it exists:** Fitness apps are abandoned within weeks because nothing is at stake. StepBet and DietBet (WayBetter) prove that people will bet on their own fitness. Invade adds a social strategy game on top, so you compete against friends instead of a spreadsheet of targets.
+**Why it exists:** fitness apps are abandoned within weeks because nothing is at stake. In Invade your steps matter to a team of friends, every day, on a shared map.
 
-**Judge feedback that shaped this:** a judge didn't know Risk and found the first idea too broad. He wanted something investable, possibly casino-related. So: **lead with the bet and the business model, never assume the audience knows Risk, and give battles a casino-table feel.**
+**Source:** the cousin's Figma "RiskWalk". Version A (the map game) is the game. From the MVP page we borrow the milestone soldiers, the step cap, the team bonus, phase timers, Ready, nudges and sharing. See `docs/DESIGN.md`.
 
-## Core game (simplified Risk)
+## The game
 
-- **Teams:** White and Black, up to 4 players each. A host creates a game and shares a code or QR.
-- **Season:** each player pays a virtual-coin buy-in into the pot. A 10% platform fee is shown in the UI.
-- **Map:** 16 Barcelona neighbourhoods in 4 regions (`DEFAULT_MAP`). Holding a whole region gives bonus soldiers. Territories are split evenly at the start, with 3 soldiers each.
-- **Walk Phase:** players walk in real life. At the end, `soldiers = floor(adjusted_steps / steps_per_soldier)`, where the handicap sets each player's personal rate.
-- **Effort bonus:** a team that beats its combined handicapped step target gets 1 reroll per battle in the next Move Phase. Effort must matter more than luck.
-- **Move Phase (turn-based, one team at a time):**
-  - **Place:** put earned soldiers on your team's territories.
-  - **Attack:** attack an adjacent enemy territory. The attacker rolls up to 3 dice and must leave 1 soldier behind; the defender rolls up to 2. Compare the highest pairs; each loss removes one soldier, and ties go to the defender. A territory is captured when the defender reaches 0.
-  - **Move (fortify):** optionally move soldiers between your own adjacent territories.
-- **Win:** the first team to hold ≥ 51% of territories, or the most territories at season end. The winning team splits the pot after the fee.
-- **Host settings:** season length, walk phase length, steps per soldier, majority threshold, buy-in, team names. The host can switch, kick and ban players in the lobby.
+- **Teams:** White vs Black, up to 4 players each.
+- **The map:** 24 irregular territories (Barcelona neighbourhoods), split evenly between the teams. Each team has an HQ (the crown). Generated deterministically by `generateMap()` in the engine.
+- **Campaign:** 30 days. Each day is a ☀️ Walk Phase and then a 🌙 Night Phase. A team wins by holding ≥ 51% of the territories, or the most territories at the end.
 
-## AI features (each must be essential)
+### ☀️ Walk Phase: steps → soldiers (built)
 
-1. **Handicapping:** a fair conversion rate per player based on their own walking baseline, like sportsbook handicaps. A transparent statistical baseline, not an overclaimed ML model.
-2. **Live odds:** win probability before each battle (exact) and for the season (Monte Carlo): "Black is 62% to take the pot. 4,000 more steps tonight flips it." The maths is code; the LLM only phrases the advice.
-3. **Anti-cheat:** flags suspicious steps (implausible cadence, perfectly regular shaking, steps with no time span). Heuristics, and we're honest about that.
-4. **AI dealer:** a casino-style host (Claude) that announces battles, taunts the losing team and writes a shareable nightly recap.
-5. *Stretch:* "The Idle", an AI army that spawns when teams fall behind their walking pace and invades the laziest team.
+- **Steps come only from Apple Health**, through the "Invade Sync" iOS Shortcut, so the numbers are always the real ones.
+- Daily milestones per player (from the cousin's balancing table):
+
+| Steps today | Soldiers |
+|---|---|
+| 5,000 | 4 |
+| 10,000 | 8 |
+| 12,000 | 10 (**cap**; more steps earn nothing) |
+
+- **Team bonus:** when *every* member reaches 5k → +B, and when everyone reaches 10k → +2B, where B = max(1, floor(team size / 2)). For a team of 4 that's +2 / +4; for a pair it's the MVP's +1 / +2.
+- **The map is the scoreboard:** as soldiers arrive, your team's half fills and glows.
+
+### 🌙 Night Phase (specified, not built yet)
+
+Both teams plan **at the same time, in secret**:
+1. **Place** all new soldiers on your territories.
+2. **Move** soldiers between your own adjacent territories.
+3. **Attack** an adjacent enemy territory with some of your soldiers.
+
+Everyone taps **Ready**. Then the **reveal** resolves every battle on the map, one by one.
+
+**Battles are an odds roll:**
+- The win chance is attackers ÷ (attackers + defenders), shown as "You 58% / Enemy 42%" before you confirm.
+- **Win:** the territory flips, and the attackers keep max(1, a − floor(d/2)).
+- **Loss:** the attackers are lost, and the defender keeps max(1, d − floor(a/2)).
+
+## AI (each one essential)
+
+| Feature | Status | What it does |
+|---|---|---|
+| Nudge | next | Spots who is short of the next milestone or blocking the team bonus; writes a personal nudge you send in one tap |
+| Night strategist | later | Proposes the best attacks with exact odds and explains why |
+| Commentator | later | Calls each battle in the reveal and writes the shareable nightly recap |
+| Step integrity | later | Flags implausible reports (Apple Health makes this mostly unnecessary) |
+
+The numbers (odds, milestones, bonuses) are always computed by code. Claude only writes the words.
 
 ## Guardrails
 
-- **Virtual coins only.** No real money in the build. Real-money betting is regulated (in Spain, likely DGOJ licensing); present it as the business model, pending legal advice.
-- No spectator betting on other people's games.
-- **Demo mode is mandatory:** phases last minutes, a simulated step source, and a live-walk moment where judges walk for 30 seconds and their steps arrive as reinforcements on the big screen.
+- Virtual stakes only. Real-money pots are the business model and need legal advice first (in Spain, likely a DGOJ licence).
+- iPhone only for now (Apple Health). Android (Health Connect) and a native app are on the roadmap.
 
-## The demo loop (priority over everything)
+## The demo (judging, 16:00)
 
-Create game → lobby → Walk Phase → steps-to-soldiers conversion → Move Phase with dice and odds → AI dealer recap.
+Real players walk all day with the Shortcut installed. At judging:
+1. The Mac shows the real day's campaign map.
+2. A player taps **Sync** on stage, and their real Apple Health steps arrive.
+3. A milestone is crossed, and soldiers march into their team's HQ.
+4. The Night Phase is shown as tonight's next step.

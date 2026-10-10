@@ -28,4 +28,11 @@ Other frames in Figma: Repose and Move variants, the kick popup, the non-owner l
 
 ## Map decision
 
-In Figma the 3D map is a **rendered image**, not separate territories. For the build we draw an **interactive 2.5D SVG map** in the same style (extruded tiles, glowing edges, team colours), using `GRID_POSITIONS` from the engine. The 3D render stays as splash and background art. Real 3D (three.js) is a stretch goal.
+The Figma map is a **set of rendered images** (the `Map` component has `Map`, `image 4`, `image 5` and `Group 458` layers), not separate territories:
+- `Map` (JPEG) is an earlier green-island style.
+- `image 4` is a Monument Valley screenshot used as mood reference. **Never ship it** (it's copyrighted).
+- `image 5` and `Group 458 / image 1` are the **dark glowing renders** we match. `image 5` shows a Place state with green "+" markers on the territories.
+
+We build the map **live in three.js**, matching the dark render: extruded tiles, glowing white edges, pillar height = soldiers. The territory polygons come from `generateMap()` in the engine. The renders are used as the visual reference and for splash art.
+
+Figma pages: **Risk x Walk** is the Version A design (the game). **MVP** holds the cousin's written spec and the balancing table, which our rules borrow from. **Ideas, Sctech and Wireframe** hold earlier explorations.
