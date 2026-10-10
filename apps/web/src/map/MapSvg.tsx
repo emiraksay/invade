@@ -56,6 +56,8 @@ function Tile({ t, pulse, selected, onTap }: { t: TerritoryView; pulse: number; 
     <g
       transform={t.isHq ? `translate(0 ${-(depth - DEPTH)})` : undefined}
       onClick={onTap ? () => onTap(t) : undefined}
+      onKeyDown={onTap ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(t); } } : undefined}
+      tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={`${t.name}, ${t.owner}${t.isHq ? ' headquarters' : ''}${t.soldiers ? `, ${t.soldiers} soldiers` : ''}`}
       style={{ cursor: interactive ? 'pointer' : undefined }}

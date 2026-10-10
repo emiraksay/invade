@@ -49,8 +49,8 @@ export function TableView({ teams, settings, live, code }: TableViewProps) {
   return (
     <main style={{ minHeight: '100%', padding: '32px 40px', display: 'grid', gap: 24, maxWidth: 1400, margin: '0 auto' }}>
       <header style={{ textAlign: 'center' }}>
-        <h1 className="display" style={{ margin: 0, fontSize: 44, letterSpacing: '0.04em' }}>INVADE</h1>
-        <div style={{ fontSize: 26 }}><Countdown timezone={settings.timezone} /></div>
+        <p className="display" style={{ margin: 0, fontSize: 44, letterSpacing: '0.04em' }}>INVADE</p>
+        <Countdown timezone={settings.timezone} size={26} />
       </header>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(420px, 1.4fr) minmax(260px, 1fr)', gap: 32, alignItems: 'start' }}>
         <TeamColumn team={teams.white} name={settings.teamNames.white} align="left" />

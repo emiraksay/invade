@@ -11,11 +11,14 @@ export function useGameByCode(code: string): { game: GameRef | null; error?: str
   const [game, setGame] = useState<GameRef | null>(null);
   const [error, setError] = useState<string>();
   useEffect(() => {
+    setGame(null);
+    setError(undefined);
     if (!supabase) { setError('Supabase is not configured'); return; }
     let cancelled = false;
-    supabase.from('games').select('id, code').eq('code', code).single().then(({ data, error }) => {
+    supabase.from('games').select('id, code').eq('code', code).maybeSingle().then(({ data, error }) => {
       if (cancelled) return;
-      if (error || !data) setError(error?.message ?? `No game with code ${code}`);
+      if (error) setError('Could not load the game');
+      else if (!data) setError(`No game with code ${code}`);
       else setGame(data as GameRef);
     });
     return () => { cancelled = true; };

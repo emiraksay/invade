@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { DEFAULT_MAP, MAX_SOLDIERS_PER_PLAYER, summarizeTeamDay, type GameSettings, type Player, type StepReport, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, summarizeTeamDay, type GameSettings, type Player, type StepReport, type TeamId } from '@invade/engine';
 import { TableView } from './Table';
 import { Battlefield, type MapMode } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 
-const MAX = 4 * MAX_SOLDIERS_PER_PLAYER + 4; // a full team of 4 at the cap, plus the +2B bonus
+// A full team of 4: the engine says what their daily maximum is (no rule re-implemented here).
+const FULL_TEAM: Player[] = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, team: 'white' }));
+const MAX = summarizeTeamDay('white', FULL_TEAM, [], '2026-10-10').maxSoldiers;
 
 /** Dev only (`/preview/map`): the map with fake progress, so the renderer can be tuned without Supabase. */
 export function MapPreview() {
