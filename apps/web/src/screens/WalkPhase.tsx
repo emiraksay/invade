@@ -4,6 +4,7 @@ import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
+import { TonightCard } from '../components/TonightCard';
 import { loadSession } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
@@ -34,6 +35,7 @@ export function WalkPhase() {
       <MilestoneTrack me={me} />
       <TeamList team={teams.white} name={settings.teamNames.white} myId={session.player.id} />
       <TeamList team={teams.black} name={settings.teamNames.black} myId={session.player.id} />
+      <TonightCard teams={teams} settings={settings} myTeam={session.player.team} />
 
       <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none' }} href={SYNC_SHORTCUT_URL}>
         Sync from Apple Health
