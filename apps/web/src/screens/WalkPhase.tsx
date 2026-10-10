@@ -36,7 +36,7 @@ const byPlayer = (r?: NudgeResponse): Record<string, Nudge> => Object.fromEntrie
  * Map tab: countdown, stats, the battlefield as the scoreboard, OPEN LIST (milestones, tonight,
  * sync) and the LOG bar, with no scrolling. The floating navbar switches to the Figma "Idle" team
  * panel and to Settings (Apple Health sync, SFX / Music / Notification). Teammates who need a nudge
- * get a red dot (on the helmet and next to their name); their row holds the message to send.
+ * get a NUDGE tag by their name (and a dot on the helmet); their row holds the message to send.
  */
 export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');

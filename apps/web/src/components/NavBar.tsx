@@ -9,7 +9,7 @@ const ART: Record<Tab, string> = { team: navPlayers, map: navMap, settings: navS
 /**
  * Figma Navbar (348:2309): profile, map, settings. The exported art already draws the active icon,
  * so the buttons are transparent tap zones over it. It floats over the bottom of the screen.
- * `alert` puts a red dot on the helmet when a teammate needs a nudge.
+ * `alert` puts a white dot on the helmet when a teammate needs a nudge.
  */
 export function NavBar({ tab, onTab, alert = false }: { tab: Tab; onTab: (t: Tab) => void; alert?: boolean }) {
   return (

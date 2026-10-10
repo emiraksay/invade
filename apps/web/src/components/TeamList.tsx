@@ -41,7 +41,7 @@ function Member({ m, rank, team, me, nudge }: { m: PlayerDay; rank: number; team
         <span className={`avatar avatar-${team}`} />
         <strong style={{ flex: 1, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
           {m.player.name}
-          {nudge && <span className="nudge-dot" role="img" aria-label="needs a nudge" />}
+          {nudge && <span className="nudge-tag">Nudge</span>}
         </strong>
         <img src={caret} alt="" width={14} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />
       </button>
@@ -62,7 +62,8 @@ function Member({ m, rank, team, me, nudge }: { m: PlayerDay; rank: number; team
 
 /**
  * Figma "Idle" team panel: team name and soldiers, then ranked members that expand to today's stats.
- * Teammates in `nudges` get a red dot; opening their row shows the nudge to send.
+ * Teammates in `nudges` get a NUDGE tag (not red: red means armies/attacks in the Figma LOG);
+ * opening their row shows the nudge to send.
  */
 export function TeamList({ team, name, myId, dim = false, nudges = {} }: { team: TeamDay; name: string; myId: string; dim?: boolean; nudges?: Record<string, Nudge> }) {
   const ranked = [...team.members].sort((a, b) => b.steps - a.steps);

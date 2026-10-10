@@ -186,8 +186,10 @@ button, input { font: inherit; color: inherit; }
 .sheet-close { background: none; border: 0; font-size: 20px; min-width: 44px; min-height: 44px; cursor: pointer; color: var(--color-text-secondary); }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* A teammate needs a nudge: red dot next to their name and on the navbar helmet. */
-.nudge-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 8px rgba(255, 59, 48, 0.7); flex: none; }
+/* A teammate needs a nudge: a white NUDGE tag by their name, a white dot on the navbar helmet.
+   Not red: in the Figma LOG, red circles are armies and attacks. */
+.nudge-dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); flex: none; }
+.nudge-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 4px; color: #fff; }
 .nav-zone { position: relative; }
 .nav-dot { position: absolute; top: 8px; left: calc(50% + 10px); }
-.nudge-note { display: grid; gap: 10px; margin: 0 16px 14px 46px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 59, 48, 0.08); border: 1px solid rgba(255, 59, 48, 0.25); }
+.nudge-note { display: grid; gap: 10px; margin: 0 16px 14px 46px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.18); }
