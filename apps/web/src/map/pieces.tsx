@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PieceView } from './model';
 
 /**
- * Each player's ring colour (cousin's Sctech Place frame: red, blue, green rings around the avatars).
+ * Each player's ring colour. The first three are the cousin's Sctech Place frame (red, blue, green
+ * rings around the avatars); the rest continue in the same pure, saturated style.
  * Display only: handed out in the order of view.pieces, so up to 8 players never share a colour.
  */
-export const PLAYER_COLORS = ['#ff3b30', '#2f6bff', '#2ee86a', '#ffb000', '#b14cff', '#00d4e0', '#ff4fa3', '#9be02e'] as const;
+export const PLAYER_COLORS = ['#ff2424', '#0004ff', '#00ff44', '#ffe500', '#ff00e5', '#00e5ff', '#ff8a00', '#8a00ff'] as const;
 
 export function playerColors(pieces: readonly PieceView[]): Map<string, string> {
   return new Map(pieces.map((p, i) => [p.playerId, PLAYER_COLORS[i % PLAYER_COLORS.length]!]));
