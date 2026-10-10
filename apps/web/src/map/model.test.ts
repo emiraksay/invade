@@ -51,6 +51,16 @@ describe('walkPhaseMapView', () => {
     expect(view.territories.filter((t) => t.owner === 'black').every((t) => t.charge === 0)).toBe(true);
   });
 
+  it('exposes the depth from the HQ (0 on the HQ, increasing toward the front)', () => {
+    const view = walkPhaseMapView(DEFAULT_MAP, NO_PROGRESS);
+    for (const team of ['white', 'black'] as TeamId[]) {
+      const mine = view.territories.filter((t) => t.owner === team);
+      expect(mine.find((t) => t.isHq)!.depth).toBe(0);
+      expect(Math.max(...mine.map((t) => t.depth))).toBeGreaterThan(0);
+      for (const t of mine) expect(t.depth).toBe(depthsFromHq(DEFAULT_MAP, team).get(t.id));
+    }
+  });
+
   it('summarises each team', () => {
     const view = walkPhaseMapView(DEFAULT_MAP, half);
     expect(view.teams.white).toEqual({ soldiers: 22, maxSoldiers: 44, territories: 12, charge: 0.5 });

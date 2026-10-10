@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Point, TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
@@ -42,7 +43,9 @@ function Crown({ x, y, fill }: { x: number; y: number; fill: string }) {
   );
 }
 
-function Tile({ t, selected, onTap }: { t: TerritoryView; selected: boolean; onTap?: (t: TerritoryView) => void }) {
+const RIPPLE_STEP_MS = 140;
+
+function Tile({ t, pulse, selected, onTap }: { t: TerritoryView; pulse: number; selected: boolean; onTap?: (t: TerritoryView) => void }) {
   const p = PALETTE[t.owner];
   const depth = DEPTH + (t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0);
   const top = mix(p.topDim, p.topLit, t.charge);
@@ -72,6 +75,10 @@ function Tile({ t, selected, onTap }: { t: TerritoryView; selected: boolean; onT
         strokeLinejoin="round"
         style={{ transition: 'fill 600ms ease, stroke-opacity 600ms ease' }}
       />
+      {/* Soldiers arrived: a white flash that marches outward from the HQ. Remounted on each pulse to replay. */}
+      {pulse > 0 && (
+        <path key={pulse} d={path(poly)} fill="#fff" className="tile-pulse" style={{ animationDelay: `${t.depth * RIPPLE_STEP_MS}ms` }} pointerEvents="none" />
+      )}
       {t.isHq && <Crown x={cx} y={cy - (t.soldiers ? 3 : 0)} fill={t.owner === 'white' ? '#121215' : '#f2efe6'} />}
       {t.isHq && t.soldiers > 0 && (
         <text x={cx} y={cy + 6} textAnchor="middle" fontSize="6" fontWeight="700" fill={p.text} style={{ fontFamily: 'var(--font-body)' }}>
@@ -90,7 +97,21 @@ export interface MapSvgProps {
   flat?: boolean;
 }
 
+/** Counts up each time a team's soldiers increase, so tiles can replay their flash. */
+function usePulses(view: MapView): Record<TeamId, number> {
+  const [pulses, setPulses] = useState<Record<TeamId, number>>({ white: 0, black: 0 });
+  const prev = useRef<Record<TeamId, number>>({ white: view.teams.white.soldiers, black: view.teams.black.soldiers });
+  const white = view.teams.white.soldiers, black = view.teams.black.soldiers;
+  useEffect(() => {
+    const grew: TeamId[] = (['white', 'black'] as TeamId[]).filter((team) => ({ white, black })[team] > prev.current[team]);
+    prev.current = { white, black };
+    if (grew.length) setPulses((p) => ({ ...p, ...Object.fromEntries(grew.map((team) => [team, p[team] + 1])) }));
+  }, [white, black]);
+  return pulses;
+}
+
 export function MapSvg({ view, selected = null, onTap, flat = false }: MapSvgProps) {
+  const pulses = usePulses(view);
   const pad = 4;
   const extra = DEPTH + HQ_LIFT_MAX;
   // Paint back to front so a tile's side is covered by the tile in front of it.
@@ -110,7 +131,7 @@ export function MapSvg({ view, selected = null, onTap, flat = false }: MapSvgPro
         }}
       >
         {tiles.map((t) => (
-          <Tile key={t.id} t={t} selected={t.id === selected} onTap={onTap} />
+          <Tile key={t.id} t={t} pulse={pulses[t.owner]} selected={t.id === selected} onTap={onTap} />
         ))}
       </svg>
     </div>

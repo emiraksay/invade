@@ -24,8 +24,19 @@ const COLOR: Record<TeamId, { dim: string; lit: string }> = {
 };
 const LABEL: Record<TeamId, string> = { white: '#121215', black: '#f2efe6' };
 
-function Pillar({ t, selected, onTap }: { t: TerritoryView; selected: boolean; onTap?: (t: TerritoryView) => void }) {
+const RIPPLE_MS = 1100;          // how long one tile glows after soldiers arrive
+const RIPPLE_STEP_MS = 140;      // delay per step from the HQ: the glow marches outward
+
+function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void }) {
   const group = useRef<THREE.Group>(null);
+  const material = useRef<THREE.MeshStandardMaterial>(null);
+  // Soldiers arrived (a milestone was crossed): schedule this tile's flash, staggered by its depth from the HQ.
+  const prevSoldiers = useRef(teamSoldiers);
+  const flashAt = useRef(-Infinity);
+  useEffect(() => {
+    if (teamSoldiers > prevSoldiers.current) flashAt.current = performance.now() + t.depth * RIPPLE_STEP_MS;
+    prevSoldiers.current = teamSoldiers;
+  }, [teamSoldiers, t.depth]);
   const poly = useMemo(() => insetPolygon(t.polygon, t.center, SLAB_GAP), [t.polygon, t.center]);
   const geometry = useMemo(() => {
     const shape = new THREE.Shape(poly.map(([x, y]) => new THREE.Vector2(x, y)));
@@ -46,9 +57,15 @@ function Pillar({ t, selected, onTap }: { t: TerritoryView; selected: boolean; o
   const edges = useMemo(() => new THREE.EdgesGeometry(geometry, 15), [geometry]);
 
   const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
+  const baseEmissive = selected ? 0.5 : 0.08 + 0.3 * t.charge;
   useFrame(() => {
     const g = group.current;
     if (g) g.position.y += (lift - g.position.y) * 0.1; // ease toward the target height
+    const m = material.current;
+    if (!m) return;
+    const age = performance.now() - flashAt.current;
+    const k = age < 0 ? 0 : Math.max(0, 1 - age / RIPPLE_MS); // 1 at the flash, fading to 0
+    m.emissiveIntensity = baseEmissive + k * k * 0.9;
   });
 
   const top = new THREE.Color(COLOR[t.owner].dim).lerp(new THREE.Color(COLOR[t.owner].lit), t.charge);
@@ -69,12 +86,13 @@ function Pillar({ t, selected, onTap }: { t: TerritoryView; selected: boolean; o
         onPointerOut={onTap ? () => { document.body.style.cursor = ''; } : undefined}
       >
         <meshStandardMaterial
+          ref={material}
           vertexColors
           color={top}
           roughness={t.owner === 'white' ? 0.35 : 0.8}
           metalness={0.05}
           emissive={selected ? '#7fb6ff' : t.owner === 'white' ? '#ffffff' : '#8a8580'}
-          emissiveIntensity={selected ? 0.5 : 0.08 + 0.3 * t.charge}
+          emissiveIntensity={baseEmissive}
         />
       </mesh>
       <lineSegments geometry={edges}>
@@ -136,7 +154,7 @@ export default function Map3D({ view, selected = null, onTap, onReady }: Map3DPr
         <group rotation={[0, MAP_YAW, 0]}>
         <group position={[-w / 2, 0, -h / 2]}>
           {view.territories.map((t) => (
-            <Pillar key={t.id} t={t} selected={t.id === selected} onTap={onTap} />
+            <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} />
           ))}
         </group>
         </group>

@@ -19,6 +19,8 @@ export interface TerritoryView {
   soldiers: number;
   /** 0..1: how lit the territory is. Spreads from the HQ to the front line as the team nears its daily max. */
   charge: number;
+  /** Steps from the team's HQ through its own land (0 = HQ). Renderers stagger effects by it. */
+  depth: number;
 }
 
 export interface TeamView {
@@ -90,6 +92,7 @@ export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress
       neighbors: t.neighbors,
       soldiers: t.isHq ? teams[t.team].soldiers : 0,
       charge: clamp01(teamCharge(t.team) * levels - d),
+      depth: d,
     };
   });
 

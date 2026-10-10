@@ -29,7 +29,12 @@ export function MapPreview() {
       </p>
       {(['white', 'black'] as TeamId[]).map((team) => (
         <label key={team} style={{ display: 'grid', gap: 6, fontSize: 14 }}>
-          <span className="display">{team} · {soldiers[team]} / {MAX} soldiers</span>
+          <span className="display" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {team} · {soldiers[team]} / {MAX} soldiers
+            <button type="button" className="pill" style={{ fontSize: 13, minHeight: 36, padding: '4px 14px' }} onClick={() => setSoldiers({ ...soldiers, [team]: Math.min(MAX, soldiers[team] + 4) })}>
+              + sync (+4)
+            </button>
+          </span>
           <input type="range" min={0} max={MAX} value={soldiers[team]} onChange={(e) => setSoldiers({ ...soldiers, [team]: Number(e.target.value) })} />
         </label>
       ))}
