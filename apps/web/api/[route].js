@@ -20171,7 +20171,28 @@ var ROUTES = {
   "POST /api/me": me,
   "POST /api/steps": (repo, body) => submitSteps(repo, body, /* @__PURE__ */ new Date())
 };
+async function health() {
+  const url = process.env.SUPABASE_URL?.trim() ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  let claims = {};
+  try {
+    claims = JSON.parse(Buffer.from(key.split(".")[1] ?? "", "base64url").toString("utf8"));
+  } catch {
+  }
+  let database = "not checked";
+  try {
+    const { supabaseRepo: supabaseRepo2 } = await Promise.resolve().then(() => (init_repo(), repo_exports));
+    database = await supabaseRepo2.findGameByCode("INVADE") ? "ok: INVADE game found" : "ok: INVADE game missing";
+  } catch (e) {
+    database = `error: ${e instanceof Error ? e.message : JSON.stringify(e)}`;
+  }
+  return {
+    status: 200,
+    json: { ok: true, data: { urlHost: url.replace(/^https?:\/\//, ""), keyLength: key.length, keyRole: claims.role ?? "unreadable", keyRef: claims.ref ?? "unreadable", database } }
+  };
+}
 async function handleApi(method, path, body, repo) {
+  if (method.toUpperCase() === "GET" && path.replace(/\/$/, "") === "/api/health") return health();
   const handler2 = ROUTES[`${method.toUpperCase()} ${path.replace(/\/$/, "")}`];
   if (!handler2) return { status: 404, json: { ok: false, error: "Not found" } };
   try {
