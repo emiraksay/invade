@@ -115,7 +115,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
       {tab === 'map' && (
         <>
           <Countdown timezone={settings.timezone} />
-          <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} />
+          <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} seasonStart={settings.seasonStart} />
           <StatsBar stats={stats} />
           <div className="walk-map">
             <Battlefield
