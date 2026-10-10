@@ -71,27 +71,29 @@ function useRamp(key: string, active: boolean, ms = 2200): number {
 
 function ShareBar({ white }: { white: number }) {
   return (
-    <div style={{ display: 'grid', gap: 6 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 22 }}>
+    <div style={{ display: 'grid', gap: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 13 }}>
         <span>WHITE {pct(white)}</span><span>{pct(1 - white)} BLACK</span>
       </div>
-      <div style={{ height: 14, borderRadius: 7, background: '#2b2826', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.3)' }}>
+      <div style={{ height: 8, borderRadius: 4, background: '#2b2826', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.3)' }}>
         <div style={{ width: pct(white), height: '100%', background: '#f2f2f2', transition: 'width 900ms ease' }} />
       </div>
     </div>
   );
 }
 
-function TeamColumn({ team, players, day, ramp, showSoldiers }: { team: TeamId; players: Player[]; day: DemoDay | null; ramp: number; showSoldiers: boolean }) {
+/** One team inside the phone: soldiers tonight and each player's steps today. */
+function TeamList({ team, players, day, ramp, showSoldiers }: { team: TeamId; players: Player[]; day: DemoDay | null; ramp: number; showSoldiers: boolean }) {
   const mine = players.filter((p) => p.team === team);
+  const right = team === 'black';
   return (
-    <section style={{ display: 'grid', gap: 10, alignContent: 'start', textAlign: team === 'white' ? 'left' : 'right' }}>
-      <h2 className="display" style={{ margin: 0, fontSize: 40 }}>{TEAM_NAME[team]}</h2>
-      {day && showSoldiers && <p style={{ margin: 0, fontSize: 22 }}><strong style={{ fontSize: 34 }}>{day.soldiers[team]}</strong> soldiers tonight</p>}
+    <section style={{ display: 'grid', gap: 4, alignContent: 'start', textAlign: right ? 'right' : 'left', fontSize: 12 }}>
+      <strong className="display" style={{ fontSize: 16 }}>{TEAM_NAME[team]}</strong>
+      <span style={{ minHeight: 16 }}>{day && showSoldiers ? <><strong style={{ fontSize: 15 }}>{day.soldiers[team]}</strong> soldiers</> : ''}</span>
       {mine.map((p) => (
-        <div key={p.id} className="item" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 16px', fontSize: 20, flexDirection: team === 'white' ? 'row' : 'row-reverse' }}>
-          <strong>{p.name}</strong>
-          <span className="muted">{day ? `${fmt.format(Math.round((day.steps[p.id] ?? 0) * ramp))} steps` : '0 steps'}</span>
+        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, flexDirection: right ? 'row-reverse' : 'row', padding: '4px 8px', borderRadius: 8, background: 'rgba(255,255,255,0.06)' }}>
+          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</strong>
+          <span className="muted">{day ? fmt.format(Math.round((day.steps[p.id] ?? 0) * ramp)) : '0'}</span>
         </div>
       ))}
     </section>
@@ -125,23 +127,34 @@ export function DemoWeek() {
   const ramp = useRamp(`${step.kind}-${day?.day}-${phase}`, phase === 'walk');
   const label = step.kind === 'intro' ? 'THE BET' : step.kind === 'result' ? 'SUNDAY MIDNIGHT · THE RESULT' : `${DAY_NAMES[step.day - 1]!.toUpperCase()} · DAY ${step.day} OF 7 · ${phase === 'morning' ? '☀️ MORNING' : phase === 'walk' ? '🚶 WALKING' : '🌙 NIGHT BATTLE'}`;
 
-  return (
-    <main className="screen" style={{ maxWidth: 1600, margin: '0 auto', padding: '16px 32px', display: 'grid', gap: 12, minHeight: '100vh', alignContent: 'start' }}>
-      <header style={{ display: 'grid', gap: 4, textAlign: 'center' }}>
-        <h1 className="display" style={{ margin: 0, fontSize: 40 }}>INVADE</h1>
-        <p className="display" style={{ margin: 0, fontSize: 26, letterSpacing: '0.06em' }}>{label}</p>
-      </header>
-      <ShareBar white={share} />
+  const walking = phase === 'walk' || phase === 'night' ? day : null;
+  const soldiersShown = phase === 'night' || (phase === 'walk' && ramp >= 1);
+  const doneNights = week.days.slice(0, nights);
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(320px, 1.3fr) minmax(220px, 1fr)', gap: 28, alignItems: 'start' }}>
-        <TeamColumn team="white" players={players} day={phase === 'walk' || phase === 'night' ? day : null} ramp={phase === 'night' ? 1 : ramp} showSoldiers={phase === 'night' || (phase === 'walk' && ramp >= 1)} />
-        <div style={{ width: 'min(100%, 34vh)', margin: '0 auto' }}>
-          <Battlefield view={view} targets={targets} bloom />
+  return (
+    <main className="screen" style={{ maxWidth: 1500, margin: '0 auto', padding: '2vh 32px', minHeight: '100vh', display: 'grid', gridTemplateColumns: 'auto minmax(360px, 1fr)', gap: 40, alignItems: 'center' }}>
+      {/* The phone: what a player sees on their screen. */}
+      <div style={{ height: 'min(94vh, 880px)', aspectRatio: '390 / 844', borderRadius: 52, border: '10px solid #2a2a2e', boxShadow: '0 0 0 2px #555, 0 30px 80px rgba(0,0,0,0.7)', background: 'radial-gradient(120% 80% at 50% 0%, #1d1a18, #070606)', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', padding: '50px 16px 16px', gap: 8 }}>
+        <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', width: 110, height: 28, borderRadius: 16, background: '#000' }} aria-hidden />
+        <header style={{ display: 'grid', gap: 2, textAlign: 'center' }}>
+          <strong className="display" style={{ fontSize: 22 }}>INVADE</strong>
+          <span className="display" style={{ fontSize: 12, letterSpacing: '0.05em' }}>{label}</span>
+        </header>
+        <ShareBar white={share} />
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <div style={{ width: '100%' }}>
+            <Battlefield view={view} targets={targets} />
+          </div>
         </div>
-        <TeamColumn team="black" players={players} day={phase === 'walk' || phase === 'night' ? day : null} ramp={phase === 'night' ? 1 : ramp} showSoldiers={phase === 'night' || (phase === 'walk' && ramp >= 1)} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <TeamList team="white" players={players} day={walking} ramp={phase === 'night' ? 1 : ramp} showSoldiers={soldiersShown} />
+          <TeamList team="black" players={players} day={walking} ramp={phase === 'night' ? 1 : ramp} showSoldiers={soldiersShown} />
+        </div>
       </div>
 
-      <section className="item" style={{ padding: '18px 24px', display: 'grid', gap: 8, textAlign: 'center', border: '1px solid rgba(255,255,255,0.25)' }} aria-live="polite">
+      {/* Beside the phone: everything the room needs to follow. */}
+      <aside style={{ display: 'grid', gap: 16, alignContent: 'center' }}>
+      <section className="item" style={{ padding: '18px 24px', display: 'grid', gap: 8, border: '1px solid rgba(255,255,255,0.25)' }} aria-live="polite">
         {step.kind === 'intro' && (
           <>
             <span className="muted" style={{ fontSize: 16, letterSpacing: '0.08em' }}>BEFORE MONDAY · EVERYONE BETS ON THEIR TEAM</span>
@@ -176,7 +189,7 @@ export function DemoWeek() {
             <span className="muted" style={{ fontSize: 16, letterSpacing: '0.08em' }}>THE WEEK IS OVER</span>
             <strong className="display" style={{ fontSize: 56 }}>{TEAM_NAME[week.winner].toUpperCase()} WINS THE WEEK</strong>
             <span style={{ fontSize: 22 }}>{pct(week.days[6]!.share[week.winner])} of the island · {week.pot} coins in the pot</span>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
               {week.payouts.filter((p) => p.team === week.winner).map((p) => (
                 <span key={p.playerId} className="item" style={{ padding: '10px 18px', fontSize: 22 }}>
                   <strong>{p.name}</strong> bet {p.coins} → <strong style={{ color: '#59d26b' }}>+{p.payout} coins</strong>
@@ -188,12 +201,37 @@ export function DemoWeek() {
         )}
       </section>
 
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+      <section style={{ display: 'grid', gap: 4 }} aria-label="The week so far">
+        <span className="muted" style={{ fontSize: 14, letterSpacing: '0.08em' }}>THE WEEK SO FAR</span>
+        {week.days.map((d) => {
+          const done = doneNights.includes(d);
+          const now = day?.day === d.day;
+          return (
+            <div key={d.day} style={{ display: 'grid', gridTemplateColumns: '48px 1fr 1.1fr 92px', gap: 10, alignItems: 'center', fontSize: 16, padding: '5px 10px', borderRadius: 8, background: now ? 'rgba(255,255,255,0.12)' : 'transparent', opacity: done || now ? 1 : 0.35 }}>
+              <strong>{DAY_NAMES[d.day - 1]!.slice(0, 3)}</strong>
+              <span>{d.zoneName}{d.extraZoneName ? ` + ${d.extraZoneName}` : ''}</span>
+              <span style={{ color: d.decree.kind === 'rebellion' && (done || now) ? '#ff5a4a' : undefined }}>{done || now ? d.title : '?'}</span>
+              <strong style={{ textAlign: 'right' }}>{done ? `${TEAM_NAME[d.winner]} ✓` : ''}</strong>
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="muted" style={{ fontSize: 15, lineHeight: 1.5 }} aria-label="How it works">
+        <strong style={{ color: '#fff' }}>How it works</strong>
+        <div>1 · 7 zones, 7 days: every day both teams fight for one zone.</div>
+        <div>2 · Steps from Apple Health become soldiers (5k = 4, 10k = 8, 12k = 10).</div>
+        <div>3 · Every morning the AI Director twists the day's rules.</div>
+        <div>4 · Midnight: more soldiers takes the zone. Most land on Sunday wins the coins.</div>
+      </section>
+
+      <div style={{ display: 'flex', gap: 12 }}>
         <button type="button" className="pill" onClick={back} disabled={i === 0} style={{ fontSize: 18, opacity: i === 0 ? 0.4 : 1 }}>◀ Back</button>
         <button type="button" className="pill" onClick={next} disabled={i === STEPS.length - 1} style={{ fontSize: 22, minWidth: 220, background: '#fff', color: '#111' }}>
           {step.kind === 'intro' ? 'Start the week ▶' : step.kind === 'result' ? 'The end' : phase === 'morning' ? 'Walk ▶' : phase === 'walk' ? 'Midnight ▶' : step.day === 7 ? 'Results ▶' : 'Next morning ▶'}
         </button>
       </div>
+      </aside>
     </main>
   );
 }
