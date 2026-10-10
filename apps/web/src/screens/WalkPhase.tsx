@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DEFAULT_MAP, summarizePlayerDay } from '@invade/engine';
+import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
 import { LogBar } from '../components/LogBar';
 import { MilestoneTrack } from '../components/MilestoneTrack';
@@ -11,18 +11,28 @@ import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
-import { loadSession } from '../data/session';
+import type { MilestoneEvent } from '../data/events';
+import { loadSession, type Session } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
 
+export interface WalkViewProps {
+  session: Session;
+  teams: Record<TeamId, TeamDay>;
+  settings: GameSettings;
+  live: boolean;
+  players?: Player[];
+  events?: MilestoneEvent[];
+  /** Dev previews only: a canned nudge response so the card can be seen without the API. */
+  nudgePreload?: NudgeResponse;
+}
+
 /**
  * ☀️ Walk Phase (Figma "Base" 298:26565 + "LOG" 457:3277): countdown, stats, the battlefield as the
- * scoreboard, OPEN LIST (milestones, nudge, tonight), the LOG bar with Sync, and the navbar.
- * The navbar's profile tab is the Figma "Idle" team panel.
+ * scoreboard, OPEN LIST (milestones, nudge, tonight), the LOG bar (latest milestone · my steps · Sync),
+ * and the navbar. The navbar's profile tab is the Figma "Idle" team panel. Pure: everything comes from props.
  */
-export function WalkPhase() {
-  const session = loadSession();
-  const state = useGameDay(session?.game.id);
+export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
@@ -34,14 +44,6 @@ export function WalkPhase() {
     return () => window.removeEventListener('keydown', onKey);
   }, [listOpen]);
 
-  if (!session) return <Navigate to="/join" replace />;
-
-  if (state.status === 'loading') return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
-  if (state.status === 'error' || !state.teams || !state.settings) {
-    return <main className="screen"><p className="error">{state.error ?? 'Could not load the game'}</p></main>;
-  }
-
-  const { teams, settings } = state;
   const mine = session.player.team;
   const other = mine === 'white' ? 'black' : 'white';
   const myTeam = teams[mine];
@@ -61,13 +63,13 @@ export function WalkPhase() {
             <p className="subtitle walk-picked" aria-live="polite">
               {picked
                 ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === mine ? ' · your side' : ''}`
-                : state.live ? '' : '○ Reconnecting…'}
+                : live ? '' : '○ Reconnecting…'}
             </p>
           </div>
           <button type="button" className="open-list" onClick={() => setListOpen(true)} aria-haspopup="dialog">
             Open list
           </button>
-          <LogBar steps={me.steps} />
+          <LogBar steps={me.steps} events={events} players={players} timezone={settings.timezone} />
         </>
       ) : (
         <div className="walk-scroll">
@@ -86,15 +88,26 @@ export function WalkPhase() {
               <button type="button" className="sheet-close" onClick={() => setListOpen(false)} aria-label="Close list">✕</button>
             </header>
             <MilestoneTrack me={me} />
-            <NudgeCard token={session.token} />
+            <NudgeCard token={session.token} preload={nudgePreload} />
             <TonightCard teams={teams} settings={settings} myTeam={mine} />
-            <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none' }} href={SYNC_SHORTCUT_URL}>
+            <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }} href={SYNC_SHORTCUT_URL}>
               Sync from Apple Health
             </a>
-            <p className="subtitle" aria-live="polite">{state.live ? '● Live' : '○ Reconnecting…'}</p>
+            <p className="subtitle" aria-live="polite">{live ? '● Live' : '○ Reconnecting…'}</p>
           </section>
         </div>
       )}
     </main>
   );
+}
+
+export function WalkPhase() {
+  const session = loadSession();
+  const state = useGameDay(session?.game.id);
+  if (!session) return <Navigate to="/join" replace />;
+  if (state.status === 'loading') return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
+  if (state.status === 'error' || !state.teams || !state.settings) {
+    return <main className="screen"><p className="error">{state.error ?? 'Could not load the game'}</p></main>;
+  }
+  return <WalkView session={session} teams={state.teams} settings={state.settings} live={state.live} players={state.players} events={state.events} />;
 }

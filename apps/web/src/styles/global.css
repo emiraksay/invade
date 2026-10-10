@@ -102,6 +102,8 @@ button, input { font: inherit; color: inherit; }
   user-select: all;
 }
 
+@keyframes log-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
+
 /* Map: a tile flashes when soldiers arrive (see MapSvg). */
 .tile-pulse { opacity: 0; animation: tile-pulse 1100ms ease-out both; }
 @keyframes tile-pulse { 0% { opacity: 0; } 15% { opacity: 0.85; } 100% { opacity: 0; } }
@@ -140,6 +142,8 @@ button, input { font: inherit; color: inherit; }
   animation: logbar-pulse 2s ease-out infinite;
 }
 @keyframes logbar-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 42, 42, 0.55); } 100% { box-shadow: 0 0 0 10px rgba(255, 42, 42, 0); } }
+.logbar-dot-fresh { animation-duration: 0.9s; }
+.logbar-event { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Navbar tap zones over the exported Figma art. */
 .nav-zone { background: none; border: 0; padding: 0; cursor: pointer; min-height: 44px; }
