@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Player, StepSource, TeamId } from '@invade/engine';
+import { toBattleRecord, type BattleRecord, type Player, type StepSource, type TeamId } from '@invade/engine';
 import { join, me, submitSteps, type GameRow, type Repo } from './handlers';
 
 /** In-memory Repo with the same semantics as the SQL functions (keep-max, team cap). */
@@ -43,6 +43,11 @@ function memoryRepo() {
       return [...steps.entries()]
         .filter(([k]) => k.endsWith(`|${day}`))
         .map(([k, v]) => ({ playerId: k.split('|')[0]!, day, steps: v, source: 'demo' as const, reportedAt: day }));
+    },
+    async listBattles() {
+      return events
+        .map((e, i) => toBattleRecord({ id: i + 1, type: e.type, payload: e.payload, created_at: `2026-10-10T12:${String(i).padStart(2, '0')}:00Z` }))
+        .filter((b): b is BattleRecord => b !== null);
     },
   };
   return { repo, events, players, steps };
@@ -132,5 +137,44 @@ describe('submitSteps', () => {
     expect((await submitSteps(repo, { token, steps: -5, day: '2026-10-10' }, NOW)).ok).toBe(false);
     expect((await submitSteps(repo, { token, steps: 100, day: '2026-10-07' }, NOW)).ok).toBe(false);
     expect((await submitSteps(repo, { token, steps: 100, day: '2026-10-09' }, NOW)).ok).toBe(true);
+  });
+});
+
+describe('attack (POST /api/attack)', () => {
+  async function setup() {
+    const { attack, loadWarContext } = await import('./war');
+    const { attackOptions, DEFAULT_MAP } = await import('@invade/engine');
+    const mem = memoryRepo();
+    const emir = await joined(mem.repo, 'Emir', 'white');
+    await joined(mem.repo, 'Kat', 'black');
+    await submitSteps(mem.repo, { token: emir, steps: 10_000 }, NOW); // 8 soldiers
+    const me = (await mem.repo.findByTokenHash((await import('./tokens')).hashToken(emir)))!;
+    const ctx = await loadWarContext(mem.repo, me.game, NOW);
+    const target = attackOptions(ctx.war, DEFAULT_MAP, me.player.id)[0]!;
+    return { attack, loadWarContext, mem, emir, me, target };
+  }
+
+  it('wins with a low roll: the territory flips, the piece moves in, soldiers are spent', async () => {
+    const { attack, loadWarContext, mem, emir, me, target } = await setup();
+    const r = await attack(mem.repo, { token: emir, to: target.to, soldiers: 5 }, NOW, () => 0.1);
+    expect(r).toMatchObject({ ok: true, data: { won: true, to: target.to, attackersLeft: 4, defendersLeft: 0 } });
+    const ctx = await loadWarContext(mem.repo, me.game, NOW);
+    expect(ctx.war.owner[target.to]).toBe('white');
+    expect(ctx.war.pieces[me.player.id]).toEqual({ territoryId: target.to, available: 3 });
+  });
+
+  it('loses with a high roll: ownership stays, defenders drop', async () => {
+    const { attack, loadWarContext, mem, emir, me, target } = await setup();
+    const r = await attack(mem.repo, { token: emir, to: target.to, soldiers: 2 }, NOW, () => 0.99);
+    expect(r).toMatchObject({ ok: true, data: { won: false, defendersLeft: 1 } });
+    expect((await loadWarContext(mem.repo, me.game, NOW)).war.owner[target.to]).toBe('black');
+  });
+
+  it('rejects targets not next to me, too many soldiers, and players without soldiers', async () => {
+    const { attack, mem, emir, target } = await setup();
+    expect(await attack(mem.repo, { token: emir, to: 'tXX', soldiers: 1 }, NOW)).toEqual({ ok: false, error: 'You can only attack enemy territory next to you' });
+    expect(await attack(mem.repo, { token: emir, to: target.to, soldiers: 9 }, NOW)).toEqual({ ok: false, error: 'You only have 8 soldiers available' });
+    const kat = await joined(mem.repo, 'Kim', 'black');
+    expect((await attack(mem.repo, { token: kat, to: target.to, soldiers: 1 }, NOW)).ok).toBe(false);
   });
 });

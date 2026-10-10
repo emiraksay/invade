@@ -7,6 +7,7 @@ import {
   soldiersGained,
   stepsToSoldiers,
   type ApiResult,
+  type BattleRecord,
   type GameSettings,
   type JoinResponse,
   type MeResponse,
@@ -34,6 +35,8 @@ export interface Repo {
   insertEvent(gameId: string, type: string, payload: unknown): Promise<void>;
   listPlayers(gameId: string): Promise<Player[]>;
   listStepReports(gameId: string, day: string): Promise<StepReport[]>;
+  /** Every battle of the game, oldest first (the war is replayed from them). */
+  listBattles(gameId: string): Promise<BattleRecord[]>;
 }
 
 const fail = (error: string): ApiResult<never> => ({ ok: false, error });
