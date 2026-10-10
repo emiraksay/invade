@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { Point, TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
+import { CROWN_FILL, CROWN_H, CROWN_PATH, CROWN_W } from './crown';
 
 /**
  * 2.5D SVG battlefield in the Figma "Base" style: dark extruded tiles for Black, light glossy
  * tiles for White, glowing white edges that brighten as a team's charge rises, the HQ marked
- * with a crown and today's soldiers. Pure presentation: everything it draws comes from MapView.
+ * with the Figma's pixel crown. Pure presentation: everything it draws comes from MapView.
  * Works everywhere (no WebGL), so it is also the fallback for the three.js map.
  */
 
@@ -30,15 +31,17 @@ function mix(a: string, b: string, t: number): string {
 
 const path = (poly: readonly Point[], dy = 0) => `M${poly.map(([x, y]) => `${x} ${y + dy}`).join('L')}Z`;
 
+/** The Figma's pixel crown, centred on (x, y), about 9 map units wide. */
 function Crown({ x, y, fill }: { x: number; y: number; fill: string }) {
-  // Small crown: three points on a band. Drawn in map units, about 8 wide.
+  const k = 9 / CROWN_W;
   return (
     <path
-      d={`M${x - 4} ${y + 2} L${x - 4} ${y - 2} L${x - 2} ${y} L${x} ${y - 3.5} L${x + 2} ${y} L${x + 4} ${y - 2} L${x + 4} ${y + 2} Z`}
+      d={CROWN_PATH}
+      transform={`translate(${x - (CROWN_W * k) / 2} ${y - (CROWN_H * k) / 2}) scale(${k})`}
       fill={fill}
       stroke="#000"
-      strokeWidth="0.4"
-      strokeLinejoin="round"
+      strokeWidth={0.6 / k}
+      shapeRendering="crispEdges"
     />
   );
 }
@@ -81,12 +84,8 @@ function Tile({ t, pulse, selected, onTap }: { t: TerritoryView; pulse: number; 
       {pulse > 0 && (
         <path key={pulse} d={path(poly)} fill="#fff" className="tile-pulse" style={{ animationDelay: `${t.depth * RIPPLE_STEP_MS}ms` }} pointerEvents="none" />
       )}
-      {t.isHq && <Crown x={cx} y={cy - (t.soldiers ? 3 : 0)} fill={t.owner === 'white' ? '#121215' : '#f2efe6'} />}
-      {t.isHq && t.soldiers > 0 && (
-        <text x={cx} y={cy + 6} textAnchor="middle" fontSize="6" fontWeight="700" fill={p.text} style={{ fontFamily: 'var(--font-body)' }}>
-          {t.soldiers}
-        </text>
-      )}
+      {/* Figma: the HQ shows just the crown; soldier counts live in the stats bar and team lists. */}
+      {t.isHq && <Crown x={cx} y={cy} fill={CROWN_FILL[t.owner]} />}
     </g>
   );
 }

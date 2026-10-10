@@ -3,9 +3,11 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import type { Line2 } from 'three-stdlib';
 import type { TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
+import { CROWN_FILL, CrownIcon } from './crown';
 
 /**
  * Live 3D battlefield (three.js via React Three Fiber), matching the Figma's dark render:
@@ -14,7 +16,7 @@ import { insetPolygon, SLAB_GAP } from './geometry';
  * Loaded lazily by Battlefield, only when WebGL is available.
  */
 
-const PILLAR_DEPTH = 110;      // how far the light curtain under the island drops into the dark (map units)
+const PILLAR_DEPTH = 80;       // how far the island's reflection reaches down the water (map units)
 const SLAB = 5;                // thickness of each territory slab (map units)
 const STEP_MAX = 2.4;          // slabs sit at slightly different heights, like the Figma's broken ground
 const MAP_YAW = -0.14;         // radians: the Figma's map sits slightly diagonal
@@ -35,8 +37,10 @@ function stepOf(id: string): number {
   for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
   return ((h >>> 0) % 1000) / 1000 * STEP_MAX;
 }
-const LABEL: Record<TeamId, string> = { white: '#121215', black: '#f2efe6' };
 
+const BREATH_S = 3.2;            // one slow breath of the held territories' glow
+const BREATH_FPS = 20;           // the breath redraws at a low rate: cheap on phones
+const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const RIPPLE_MS = 1100;          // how long one tile glows after soldiers arrive
 const RIPPLE_STEP_MS = 140;      // delay per step from the HQ: the glow marches outward
 
@@ -74,10 +78,7 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
     const colors = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const depth = Math.min(1, Math.max(0, -(pos.getY(i) - step + SLAB) / PILLAR_DEPTH));
-      // Streaks: brightness ripples along the coast, like light broken up by the water.
-      const x = pos.getX(i), z = pos.getZ(i);
-      const streak = 0.12 + 0.88 * Math.pow(0.5 + 0.5 * Math.sin(x * 1.7 + z * 1.3) * Math.sin(x * 0.53 - z * 0.71 + 1.2), 3);
-      const v = 0.5 * streak * Math.pow(1 - depth, 2.6);
+      const v = 0.34 * Math.pow(1 - depth, 3.2); // smooth column, brightest at the waterline
       colors[i * 3] = v * 0.92; colors[i * 3 + 1] = v * 0.96; colors[i * 3 + 2] = v; // a touch of cold blue
     }
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -90,7 +91,8 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
   useEffect(() => invalidate(), [lift, invalidate]); // start easing toward the new height
   const baseEmissive = selected ? 0.5 : 0.08 + 0.3 * t.charge;
   // On-demand frame loop: keep requesting frames only while something still moves (ease or ripple).
-  useFrame(() => {
+  const rim = useRef<Line2>(null);
+  useFrame(({ clock }) => {
     let moving = false;
     const g = group.current;
     if (g) {
@@ -102,7 +104,10 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
     if (m) {
       const age = performance.now() - flashAt.current;
       const k = age < 0 ? 0 : Math.max(0, 1 - age / RIPPLE_MS); // 1 at the flash, fading to 0
-      m.emissiveIntensity = baseEmissive + k * k * 0.9;
+      // Held land breathes: a slow glow that rolls out from the HQ, stronger where the team is charged.
+      const breath = reducedMotion ? 0 : 0.5 + 0.5 * Math.sin((clock.elapsedTime / BREATH_S) * Math.PI * 2 - t.depth * 0.7);
+      m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.06 + 0.22 * t.charge);
+      if (rim.current) rim.current.material.opacity = 0.08 + 0.25 * t.charge + breath * (0.1 + 0.3 * t.charge);
       if (age < RIPPLE_MS) moving = true;
     }
     if (moving) invalidate();
@@ -112,6 +117,10 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
   const edgeOpacity = selected ? 1 : 0.75 + 0.25 * t.charge;
   const [cx, cy] = t.center;
   // Top outline in world space (map y -> world z), closed, lifted a hair above the face to avoid z-fighting.
+  const waterline = useMemo<[number, number, number][]>(
+    () => [...poly, poly[0]!].map(([x, y]) => [x, step - SLAB - 0.6, y]),
+    [poly, step],
+  );
   const outline = useMemo<[number, number, number][]>(
     () => [...poly, poly[0]!].map(([x, y]) => [x, step + 1.05, y]),
     [poly, step],
@@ -144,14 +153,14 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
         <meshBasicMaterial attach="material-1" vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
       {/* Thin bright rim where the top face meets the side, plus a faint glow as the team charges. */}
-      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
+      <Line ref={rim} points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
+      {/* Waterline: a thin broken glint where the slab meets the water (Figma). */}
+      <Line points={waterline} color="#ffffff" lineWidth={1} transparent opacity={0.55} dashed dashSize={1.2} gapSize={0.8} depthWrite={false} />
       <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={1.4} transparent opacity={edgeOpacity} depthWrite={false} />
       {t.isHq && (
         <Html position={[cx, step + 2.5, cy]} center distanceFactor={120} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-          <div style={{ textAlign: 'center', color: LABEL[t.owner], fontFamily: 'var(--font-body)', fontWeight: 700, lineHeight: 1, textShadow: t.owner === 'white' ? '0 0 6px #fff' : '0 0 6px #000' }}>
-            <div style={{ fontSize: 30 }}>♛</div>
-            {t.soldiers > 0 && <div style={{ fontSize: 28 }}>{t.soldiers}</div>}
-          </div>
+          {/* Figma: the HQ shows just the pixel crown, no number. */}
+          <CrownIcon size={34} fill={CROWN_FILL[t.owner]} />
         </Html>
       )}
     </group>
@@ -192,8 +201,8 @@ function Water({ w, h, charge }: { w: number; h: number; charge: number }) {
         <meshBasicMaterial map={texture} color="#0e0b0a" transparent opacity={0.7} depthWrite={false} toneMapped={false} />
       </mesh>
       <mesh position={[0, level + 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-        <planeGeometry args={[w * 1.45, h * 1.3]} />
-        <meshBasicMaterial map={texture} color="#000000" transparent opacity={0.85} depthWrite={false} toneMapped={false} />
+        <planeGeometry args={[w * 1.25, h * 1.15]} />
+        <meshBasicMaterial map={texture} color="#000000" transparent opacity={0.6} depthWrite={false} toneMapped={false} />
       </mesh>
     </>
   );
@@ -209,6 +218,17 @@ function CameraRig({ h }: { h: number }) {
     camera.updateProjectionMatrix();
     invalidate();
   }, [camera, h, invalidate]);
+  return null;
+}
+
+/** Keeps the on-demand frame loop ticking at a low rate so held land can breathe (off with reduced motion). */
+function Breathing() {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const id = setInterval(() => invalidate(), 1000 / BREATH_FPS);
+    return () => clearInterval(id);
+  }, [invalidate]);
   return null;
 }
 
@@ -274,6 +294,7 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
         {/* Camera sits ~1.5h from the origin; fade only the pillar bottoms and the far edge. */}
         <CameraRig h={h} />
         <FirstFrame onReady={onReady} />
+        <Breathing />
         <fog attach="fog" args={['#110d0b', h * 1.6, h * 3]} />
         <hemisphereLight args={['#ffffff', '#1a1512', 1.1]} />
         <directionalLight position={[-40, 120, 80]} intensity={1.1} />
