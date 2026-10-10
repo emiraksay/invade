@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
+import { LogBar } from '../components/LogBar';
+import type { MilestoneEvent } from '../data/events';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 import { loadSession, type Session } from '../data/session';
@@ -22,12 +24,14 @@ export interface WalkViewProps {
   teams: Record<TeamId, TeamDay>;
   settings: GameSettings;
   live: boolean;
+  players?: Player[];
+  events?: MilestoneEvent[];
   /** Dev previews only: a canned nudge response so the card can be seen without the API. */
   nudgePreload?: NudgeResponse;
 }
 
 /** The screen itself, pure: everything it shows comes from props. */
-export function WalkView({ session, teams, settings, live, nudgePreload }: WalkViewProps) {
+export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload }: WalkViewProps) {
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
   const myTeam = teams[session.player.team];
@@ -62,6 +66,7 @@ export function WalkView({ session, teams, settings, live, nudgePreload }: WalkV
         Sync from Apple Health
       </a>
       <p className="subtitle" aria-live="polite">{live ? '● Live' : '○ Reconnecting…'}</p>
+      <LogBar events={events} players={players} timezone={settings.timezone} />
     </main>
   );
 }
@@ -74,5 +79,5 @@ export function WalkPhase() {
   if (state.status === 'error' || !state.teams || !state.settings) {
     return <main className="screen"><p className="error">{state.error ?? 'Could not load the game'}</p></main>;
   }
-  return <WalkView session={session} teams={state.teams} settings={state.settings} live={state.live} />;
+  return <WalkView session={session} teams={state.teams} settings={state.settings} live={state.live} players={state.players} events={state.events} />;
 }

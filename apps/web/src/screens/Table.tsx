@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { DEFAULT_MAP, type GameSettings, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, type GameSettings, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { describeEvent, type MilestoneEvent } from '../data/events';
 import { Countdown } from '../components/Countdown';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
@@ -43,10 +44,31 @@ export interface TableViewProps {
   settings: GameSettings;
   live: boolean;
   code: string;
+  players?: Player[];
+  events?: MilestoneEvent[];
+}
+
+/** The last few milestones, newest first: the projector's ticker under the map. */
+function Feed({ events, players, timezone }: { events: MilestoneEvent[]; players: Player[]; timezone: string }) {
+  if (events.length === 0) return <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 15 }}>No milestones yet today.</p>;
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6, fontSize: 16 }}>
+      {events.slice(0, 4).map((ev, i) => {
+        const d = describeEvent(ev, players, timezone);
+        return (
+          <li key={ev.id} style={{ display: 'flex', gap: 12, alignItems: 'baseline', opacity: i === 0 ? 1 : 0.6 }}>
+            <span className="muted" style={{ fontVariantNumeric: 'tabular-nums' }}>{d.time}</span>
+            <span><strong>{d.name}</strong> crossed {d.steps} steps, <strong>{d.gained}</strong> soldiers for {ev.team === 'white' ? 'White' : 'Black'}</span>
+            {i === 0 && <span aria-hidden style={{ width: 10, height: 10, borderRadius: '50%', background: '#e5484d' }} />}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 /** The big screen itself, pure: given today's teams it renders the countdown, both columns and the battlefield. */
-export function TableView({ teams, settings, live, code }: TableViewProps) {
+export function TableView({ teams, settings, live, code, players = [], events = [] }: TableViewProps) {
   const view = walkPhaseMapView(DEFAULT_MAP, teams);
   const joinUrl = `${window.location.origin}/join?code=${code}`;
   return (
@@ -57,7 +79,10 @@ export function TableView({ teams, settings, live, code }: TableViewProps) {
       </header>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(420px, 1.4fr) minmax(260px, 1fr)', gap: 32, alignItems: 'start' }}>
         <TeamColumn team={teams.white} name={settings.teamNames.white} align="left" />
-        <Battlefield view={view} bloom />
+        <div style={{ display: 'grid', gap: 8 }}>
+          <Battlefield view={view} bloom />
+          <Feed events={events} players={players} timezone={settings.timezone} />
+        </div>
         <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
       </div>
       <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }} className="muted">
@@ -84,5 +109,5 @@ export function Table() {
   if (!lookup.game || state.status !== 'ready' || !state.teams || !state.settings) {
     return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
   }
-  return <TableView teams={state.teams} settings={state.settings} live={state.live} code={code} />;
+  return <TableView teams={state.teams} settings={state.settings} live={state.live} code={code} players={state.players} events={state.events} />;
 }

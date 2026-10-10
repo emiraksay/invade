@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_MAP, summarizeTeamDay, type GameSettings, type Player, type StepReport, type TeamId } from '@invade/engine';
 import { TableView } from './Table';
 import { WalkView } from './WalkPhase';
+import type { MilestoneEvent } from '../data/events';
 import { Battlefield, type MapMode } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 
@@ -53,6 +54,11 @@ const FAKE_PLAYERS: Player[] = [
   { id: 'b2', name: 'Hasan', team: 'black' }, { id: 'b3', name: 'Selin', team: 'black' },
 ];
 const FAKE_STEPS: Record<string, number> = { w1: 11_240, w2: 6_120, w3: 3_400, b1: 12_900, b2: 4_980, b3: 0 };
+const FAKE_EVENTS: MilestoneEvent[] = [
+  { id: 3, at: new Date(Date.now() - 20_000).toISOString(), playerId: 'w1', team: 'white', steps: 10_050, soldiers: 8, gained: 4 },
+  { id: 2, at: new Date(Date.now() - 50 * 60_000).toISOString(), playerId: 'b1', team: 'black', steps: 12_900, soldiers: 10, gained: 2 },
+  { id: 1, at: new Date(Date.now() - 95 * 60_000).toISOString(), playerId: 'w2', team: 'white', steps: 5_100, soldiers: 4, gained: 4 },
+];
 const FAKE_SETTINGS: GameSettings = {
   campaignDays: 30, winThreshold: 0.51, walkPhaseHours: 24, timezone: 'Europe/Madrid', teamNames: { white: 'White', black: 'Black' },
 };
@@ -65,7 +71,7 @@ export function TablePreview() {
     white: summarizeTeamDay('white', FAKE_PLAYERS, reports, day),
     black: summarizeTeamDay('black', FAKE_PLAYERS, reports, day),
   };
-  return <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" />;
+  return <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={FAKE_EVENTS} />;
 }
 
 /** Dev only (`/preview/walk`): the whole Walk screen as Kateryna (White) sees it, with a canned nudge. */
@@ -84,5 +90,5 @@ export function WalkPreview() {
       { playerId: 'w2', name: 'Costi', steps: 6_120, stepsToGo: 3_880, gain: 4, unlocksBonus: false, message: 'Costi, 3,880 steps to +4 soldiers. Black is watching.' },
     ],
   };
-  return <WalkView session={session} teams={teams} settings={FAKE_SETTINGS} live nudgePreload={nudgePreload} />;
+  return <WalkView session={session} teams={teams} settings={FAKE_SETTINGS} live players={FAKE_PLAYERS} events={FAKE_EVENTS} nudgePreload={nudgePreload} />;
 }
