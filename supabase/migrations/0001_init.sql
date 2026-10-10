@@ -56,6 +56,7 @@ create index on public.events (game_id, id);
 create function public.report_steps(p_player uuid, p_day date, p_steps integer, p_source text)
 returns table (before_steps integer, after_steps integer)
 language plpgsql
+set search_path = public
 as $$
 declare
   v_game uuid;
@@ -85,6 +86,7 @@ revoke execute on function public.report_steps(uuid, date, integer, text) from p
 create function public.create_player(p_game uuid, p_name text, p_team text, p_token_hash text)
 returns public.players
 language plpgsql
+set search_path = public
 as $$
 declare
   v_player public.players;
