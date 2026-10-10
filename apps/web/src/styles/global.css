@@ -272,3 +272,6 @@ button, input { font: inherit; color: inherit; }
 /* Figma LOG screen rows: time · what happened · dot · steps or soldiers. */
 .log-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: #000; border: 1px solid rgba(255,255,255,0.12); font-size: 15px; }
 .log-dot { width: 16px; height: 16px; border-radius: 50%; background: #e5484d; flex: none; }
+/* Team rows: steps and soldiers visible before the row is opened. */
+.member-glance { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--color-text-secondary); white-space: nowrap; margin-right: 10px; }
+.member-glance img { opacity: 0.8; }

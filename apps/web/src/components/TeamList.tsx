@@ -43,6 +43,11 @@ function Member({ m, rank, team, me, nudge }: { m: PlayerDay; rank: number; team
           {m.player.name}
           {nudge && <span className="nudge-tag">Nudge</span>}
         </strong>
+        {/* Steps and soldiers at a glance; the row still opens for the next milestone and the nudge. */}
+        <span className="member-glance" aria-label={`${m.steps} steps, ${m.soldiers} soldiers today`}>
+          {m.steps > 0 ? fmt.format(m.steps) : '–'} <img src={shoe} alt="" height={14} />
+          <span style={{ marginLeft: 6 }}>{m.soldiers}</span> <img src={helmet} alt="" height={14} />
+        </span>
         <img src={caret} alt="" width={14} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />
       </button>
       {open && (
