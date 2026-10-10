@@ -73,3 +73,25 @@ export interface NudgeResponse {
   /** 'claude' when the messages were written by the model, 'template' when the fallback text was used. */
   writer: 'claude' | 'template';
 }
+
+/**
+ * POST /api/general — the AI General: one personal order from the live map. Code picks the order and every
+ * number (decision 14); Claude only writes the words. `{ token }` for a player, `{ code, team }` for the
+ * team version on the big screen.
+ */
+export type GeneralRequest = { token: string } | { code: string; team: 'white' | 'black' };
+export type GeneralOrder =
+  | { kind: 'attack'; territoryId: string; territory: string; soldiers: number; defenders: number; odds: number }
+  | { kind: 'walk'; stepsToGo: number; gain: number; unlocksBonus: boolean }
+  | { kind: 'hold'; territoryId: string; territory: string };
+export interface GeneralResponse {
+  day: GameDay;
+  team: 'white' | 'black';
+  /** Whose order this is (the requesting player, or the teammate the team order is addressed to). */
+  playerId: string;
+  name: string;
+  order: GeneralOrder;
+  /** One or two short lines in the General's voice, ready to show. */
+  lines: string[];
+  writer: 'claude' | 'template';
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type GeneralResponse, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { NavBar, type Tab } from '../components/NavBar';
@@ -8,6 +8,7 @@ import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
+import { GeneralOrders } from '../components/GeneralOrders';
 import { DemoSync } from '../components/DemoSync';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { LogBar } from '../components/LogBar';
@@ -25,8 +26,9 @@ export interface WalkViewProps {
   live: boolean;
   players?: Player[];
   events?: MilestoneEvent[];
-  /** Dev previews only: a canned nudge response so the card can be seen without the API. */
+  /** Dev previews only: canned responses so the cards can be seen without the API. */
   nudgePreload?: NudgeResponse;
+  generalPreload?: GeneralResponse;
 }
 
 /**
@@ -35,7 +37,7 @@ export interface WalkViewProps {
  * sync) and the LOG bar, with no scrolling. The floating navbar switches to the Figma "Idle" team
  * panel and to Settings (Apple Health sync, SFX / Music / Notification).
  */
-export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload }: WalkViewProps) {
+export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload, generalPreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
@@ -92,6 +94,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
               <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Today</h2>
               <button type="button" className="sheet-close" onClick={() => setListOpen(false)} aria-label="Close list">✕</button>
             </header>
+            <GeneralOrders token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}`} preload={generalPreload} />
             <MilestoneTrack me={me} />
             <NudgeCard token={session.token} preload={nudgePreload} />
             <TonightCard teams={teams} settings={settings} myTeam={mine} />

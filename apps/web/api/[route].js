@@ -41031,6 +41031,43 @@ function gameDayOf(instant, timezone) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
 }
 
+// ../../packages/engine/src/pieces.ts
+var STARTING_GARRISON = 2;
+function depthsFromHq(map, team) {
+  const mine = map.territories.filter((t) => t.team === team);
+  const byId = new Map(mine.map((t) => [t.id, t]));
+  const hq = mine.find((t) => t.isHq);
+  const depth = /* @__PURE__ */ new Map();
+  if (!hq) return depth;
+  depth.set(hq.id, 0);
+  const queue = [hq.id];
+  while (queue.length) {
+    const id = queue.shift();
+    const d = depth.get(id);
+    for (const n of byId.get(id).neighbors) {
+      if (byId.has(n) && !depth.has(n)) {
+        depth.set(n, d + 1);
+        queue.push(n);
+      }
+    }
+  }
+  return depth;
+}
+function startingPositions(map, players) {
+  const positions = /* @__PURE__ */ new Map();
+  for (const team of ["white", "black"]) {
+    const depth = depthsFromHq(map, team);
+    const slots = map.territories.filter((t) => t.team === team && !t.isHq).sort((a, b) => (depth.get(b.id) ?? 0) - (depth.get(a.id) ?? 0) || a.id.localeCompare(b.id));
+    const hq = map.territories.find((t) => t.team === team && t.isHq);
+    const members = players.filter((p) => p.team === team);
+    members.forEach((p, i) => {
+      const slot = slots[Math.floor(i * slots.length / Math.max(1, members.length))] ?? hq;
+      if (slot) positions.set(p.id, slot.id);
+    });
+  }
+  return positions;
+}
+
 // server/tokens.ts
 import { createHash, randomInt } from "node:crypto";
 var ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -41209,12 +41246,150 @@ async function nudge(repo, input, now, writer) {
   return { ok: true, data: { day, team: player.team, nudges, writer: usedWriter } };
 }
 
+// server/general.ts
+init_sdk();
+var STRONG_ODDS = 0.6;
+function provisionalAttackOptions(map, players, soldiersById, playerId) {
+  const me2 = players.find((p) => p.id === playerId);
+  const positions = startingPositions(map, players);
+  const here = positions.get(playerId);
+  if (!me2 || !here) return [];
+  const territory = map.territories.find((t) => t.id === here);
+  if (!territory) return [];
+  return territory.neighbors.map((id) => map.territories.find((t) => t.id === id)).filter((t) => !!t && t.team !== me2.team).map((t) => {
+    const enemyPieces = players.filter((p) => p.team !== me2.team && positions.get(p.id) === t.id);
+    const defenders = STARTING_GARRISON + enemyPieces.reduce((s, p) => s + (soldiersById.get(p.id) ?? 0), 0);
+    return { territoryId: t.id, territory: t.name, defenders, odds: (n) => n > 0 ? n / (n + defenders) : 0 };
+  });
+}
+function forceFor(option, available) {
+  for (let n = 1; n <= available; n++) if (option.odds(n) >= STRONG_ODDS) return n;
+  return null;
+}
+function pickOrder({ me: me2, team, options, myTerritory }) {
+  const available = me2.soldiers;
+  let best = null;
+  for (const opt of options) {
+    const n = forceFor(opt, available);
+    if (n === null) continue;
+    const odds = opt.odds(n);
+    if (!best || odds > best.odds || odds === best.odds && opt.defenders < best.opt.defenders) best = { opt, n, odds };
+  }
+  if (best) {
+    return { kind: "attack", territoryId: best.opt.territoryId, territory: best.opt.territory, soldiers: best.n, defenders: best.opt.defenders, odds: Math.round(best.odds * 100) / 100 };
+  }
+  if (me2.next) {
+    const memberSteps = team.members.map((m) => m.steps);
+    const i = team.members.findIndex((m) => m.player.id === me2.player.id);
+    const withMilestone = memberSteps.map((s, j) => j === i ? Math.max(s, me2.next.milestone.steps) : s);
+    return { kind: "walk", stepsToGo: me2.next.stepsToGo, gain: me2.next.gain, unlocksBonus: teamBonus(withMilestone) > teamBonus(memberSteps) };
+  }
+  return { kind: "hold", territoryId: myTerritory?.id ?? "", territory: myTerritory?.name ?? "your ground" };
+}
+var fmt2 = new Intl.NumberFormat("de-DE");
+function templateLines(order, name) {
+  switch (order.kind) {
+    case "attack":
+      return [`${name}, attack ${order.territory} with ${order.soldiers}. ${Math.round(order.odds * 100)}% to take it.`, `${order.defenders} defenders. Go now.`];
+    case "walk":
+      return [`${name}, walk ${fmt2.format(order.stepsToGo)} steps: +${order.gain} soldiers${order.unlocksBonus ? " and the team bonus" : ""}.`, "Boots on. The map does not fill itself."];
+    case "hold":
+      return [`${name}, hold ${order.territory}. Max army today, nothing to attack yet.`, "Rest. Tonight we move."];
+  }
+}
+var Output = z.object({ lines: z.array(z.string().min(1)).min(1).max(2) });
+var OUTPUT_SCHEMA = {
+  type: "object",
+  properties: { lines: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 2 } },
+  required: ["lines"],
+  additionalProperties: false
+};
+var SYSTEM2 = `You are the General of a team in Invade, a game where friends walk in real life to earn soldiers and fight over a shared map of Barcelona neighbourhoods at night. You receive ONE order that the game already decided, with its exact numbers (territory, soldiers, defenders, win odds, steps to go, soldiers gained, whether it unlocks the team bonus). Rewrite it as one or two short lines in a commander's voice: punchy, confident, a little dry, addressed to the player by first name. Keep every number exactly as given, never add numbers, places or promises. Max 18 words per line. No emojis. No hashtags.`;
+var claudeWriter2 = async (order, name, teamName) => {
+  const client2 = new Anthropic({ timeout: 2e4, maxRetries: 1 });
+  const response = await client2.messages.create({
+    model: "claude-opus-5-5",
+    max_tokens: 300,
+    system: SYSTEM2,
+    output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+    messages: [{ role: "user", content: JSON.stringify({ player: name, team: teamName, order }) }]
+  });
+  if (response.stop_reason === "refusal") throw new Error("general: model declined");
+  const text = response.content.find((b) => b.type === "text")?.text ?? "";
+  return Output.parse(JSON.parse(text)).lines.map((l) => l.trim());
+};
+var requestSchema = z.union([
+  z.object({ token: z.string().trim().min(8).max(64) }),
+  z.object({ code: z.string().trim().toUpperCase().min(1).max(20), team: z.enum(["white", "black"]) })
+]);
+async function general(repo, input, now, writer) {
+  const parsed = requestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  let game;
+  let team;
+  let playerId;
+  if ("token" in parsed.data) {
+    const found = await repo.findByTokenHash(hashToken(parsed.data.token));
+    if (!found) return { ok: false, error: "Unknown code" };
+    game = found.game;
+    team = found.player.team;
+    playerId = found.player.id;
+  } else {
+    const g = await repo.findGameByCode(parsed.data.code);
+    if (!g) return { ok: false, error: "No game with that code" };
+    game = g;
+    team = parsed.data.team;
+    playerId = null;
+  }
+  const day = gameDayOf(now, game.settings.timezone);
+  const [players, reports] = await Promise.all([repo.listPlayers(game.id), repo.listStepReports(game.id, day)]);
+  const days = {
+    white: summarizeTeamDay("white", players, reports, day),
+    black: summarizeTeamDay("black", players, reports, day)
+  };
+  const soldiersById = /* @__PURE__ */ new Map();
+  for (const t of ["white", "black"]) for (const m of days[t].members) soldiersById.set(m.player.id, m.soldiers);
+  const positions = startingPositions(DEFAULT_MAP, players);
+  const territoryOf = (id) => {
+    const t = DEFAULT_MAP.territories.find((x) => x.id === positions.get(id));
+    return t ? { id: t.id, name: t.name } : null;
+  };
+  const orderFor = (m) => pickOrder({ me: m, team: days[team], options: provisionalAttackOptions(DEFAULT_MAP, players, soldiersById, m.player.id), myTerritory: territoryOf(m.player.id) });
+  const members = days[team].members;
+  if (members.length === 0) return { ok: false, error: "Nobody on that team yet" };
+  let target;
+  if (playerId) {
+    target = members.find((m) => m.player.id === playerId) ?? { player: players.find((p) => p.id === playerId), steps: 0, soldiers: 0, next: null };
+  } else {
+    const ranked = members.map((m) => ({ m, o: orderFor(m) }));
+    const attack = ranked.filter((r) => r.o.kind === "attack").sort((a, b) => b.o.odds - a.o.odds)[0];
+    const walk3 = ranked.filter((r) => r.o.kind === "walk").sort((a, b) => a.o.stepsToGo - b.o.stepsToGo)[0];
+    target = (attack ?? walk3 ?? ranked[0]).m;
+  }
+  const order = orderFor(target);
+  const name = target.player.name;
+  const teamName = game.settings.teamNames[team];
+  const write = writer ?? (process.env.ANTHROPIC_API_KEY?.trim() ? claudeWriter2 : null);
+  let lines = null;
+  let usedWriter = "template";
+  if (write) {
+    try {
+      lines = await write(order, name, teamName);
+      usedWriter = "claude";
+    } catch (e) {
+      console.error(`[general] writer failed, using template: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return { ok: true, data: { day, team, playerId: target.player.id, name, order, lines: lines?.length ? lines : templateLines(order, name), writer: usedWriter } };
+}
+
 // server/routes.ts
 var ROUTES = {
   "POST /api/join": join,
   "POST /api/me": me,
   "POST /api/steps": (repo, body) => submitSteps(repo, body, /* @__PURE__ */ new Date()),
-  "POST /api/nudge": (repo, body) => nudge(repo, body, /* @__PURE__ */ new Date())
+  "POST /api/nudge": (repo, body) => nudge(repo, body, /* @__PURE__ */ new Date()),
+  "POST /api/general": (repo, body) => general(repo, body, /* @__PURE__ */ new Date())
 };
 async function health() {
   const url = process.env.SUPABASE_URL?.trim() ?? "";
