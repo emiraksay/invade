@@ -1580,6 +1580,15 @@ function seededRng(seed) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
+function polygonArea(polygon) {
+  let a = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const [x0, y0] = polygon[i];
+    const [x1, y1] = polygon[(i + 1) % polygon.length];
+    a += x0 * y1 - x1 * y0;
+  }
+  return Math.abs(a) / 2;
+}
 function centroid(polygon) {
   let x = 0, y = 0, area = 0;
   for (let i = 0; i < polygon.length; i++) {
@@ -1594,34 +1603,87 @@ function centroid(polygon) {
   return [x / (6 * area), y / (6 * area)];
 }
 function generateMap(opts = {}) {
-  const { seed = 7, count = 24, width = 100, height = 160 } = opts;
-  if (count % 2 !== 0 || count > NAMES.length) throw new Error(`count must be even and <= ${NAMES.length}`);
+  const { seed = 7, count = 24, width = 100, height = 160, relax = 3, split = "count", names = NAMES, idPrefix = "t", wobble = 0 } = opts;
+  if (count > names.length) throw new Error(`count must be <= ${names.length}`);
+  if (split === "count" && count % 2 !== 0) throw new Error("count must be even when splitting by count");
   const rng = seededRng(seed);
   let points = Array.from({ length: count }, () => [rng() * width, rng() * height]);
   let voronoi = Delaunay.from(points).voronoi([0, 0, width, height]);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < relax; i++) {
     points = points.map((_, j) => [...centroid(cellPolygon(voronoi, j))]);
     voronoi = Delaunay.from(points).voronoi([0, 0, width, height]);
   }
   const delaunay = voronoi.delaunay;
   const order = points.map((p, i) => ({ i, y: p[1] })).sort((a, b) => a.y - b.y).map((o) => o.i);
   const rank = new Map(order.map((cell, r) => [cell, r]));
-  const half = count / 2;
-  const teamOf = (cell) => rank.get(cell) < half ? "black" : "white";
-  const idOf = (cell) => `t${String(rank.get(cell) + 1).padStart(2, "0")}`;
+  let blackCount = count / 2;
+  if (split === "area") {
+    const areas = order.map((cell) => polygonArea(cellPolygon(voronoi, cell)));
+    const total = areas.reduce((a, b) => a + b, 0);
+    let best = 1, bestGap = Infinity, sum2 = 0;
+    for (let k = 1; k < count; k++) {
+      sum2 += areas[k - 1];
+      const gap = Math.abs(sum2 / total - 0.5);
+      if (gap < bestGap) {
+        best = k;
+        bestGap = gap;
+      }
+    }
+    blackCount = best;
+  }
+  const teamOf = (cell) => rank.get(cell) < blackCount ? "black" : "white";
+  const pad = count > 9 ? 2 : 1;
+  const idOf = (cell) => `${idPrefix}${String(rank.get(cell) + 1).padStart(pad, "0")}`;
   const territories = order.map((cell, r) => {
     const polygon = cellPolygon(voronoi, cell);
+    const center = relax > 0 ? points[cell] : centroid(polygon);
     return {
       id: idOf(cell),
-      name: NAMES[r],
+      name: names[r],
       team: teamOf(cell),
       isHq: r === 0 || r === count - 1,
-      polygon: polygon.map(([x, y]) => [round(x), round(y)]),
-      center: [round(points[cell][0]), round(points[cell][1])],
+      polygon: (wobble > 0 ? wavyPolygon(polygon, wobble, seed, width, height) : polygon).map(([x, y]) => [round(x), round(y)]),
+      center: [round(center[0]), round(center[1])],
       neighbors: [...delaunay.neighbors(cell)].filter((n) => sharesEdge(voronoi, cell, n)).map(idOf).sort()
     };
   });
-  return { id: `voronoi-${seed}-${count}`, seed, width, height, territories };
+  return { id: `voronoi-${seed}-${count}${split === "area" ? "-area" : ""}`, seed, width, height, territories };
+}
+function onBorder(a, b, width, height) {
+  const same = (v2, w) => Math.abs(v2 - w) < EDGE_EPS;
+  return same(a[0], 0) && same(b[0], 0) || same(a[0], width) && same(b[0], width) || same(a[1], 0) && same(b[1], 0) || same(a[1], height) && same(b[1], height);
+}
+function edgeHash(a, b, seed, salt) {
+  const k = [a, b].map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`).sort().join("|");
+  let h = (2166136261 ^ seed ^ salt * 2654435769) >>> 0;
+  for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 16777619) >>> 0;
+  return h / 4294967296;
+}
+function wavePoints(a, b, amp, seed) {
+  const flip = `${a[0].toFixed(4)},${a[1].toFixed(4)}` > `${b[0].toFixed(4)},${b[1].toFixed(4)}`;
+  const [p, q] = flip ? [b, a] : [a, b];
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  const f1 = 1 + Math.floor(edgeHash(p, q, seed, 1) * 2), f2 = 2 + Math.floor(edgeHash(p, q, seed, 2) * 3);
+  const ph1 = edgeHash(p, q, seed, 3) * Math.PI * 2, ph2 = edgeHash(p, q, seed, 4) * Math.PI * 2;
+  const size = amp * Math.min(1, len / 25);
+  const out = [];
+  for (let i = 1; i < WAVE_SEGMENTS; i++) {
+    const t = i / WAVE_SEGMENTS;
+    const off = size * Math.sin(Math.PI * t) * (0.65 * Math.sin(Math.PI * f1 * t + ph1) + 0.35 * Math.sin(Math.PI * f2 * t + ph2));
+    out.push([p[0] + dx * t + nx * off, p[1] + dy * t + ny * off]);
+  }
+  return flip ? out.reverse() : out;
+}
+function wavyPolygon(polygon, amp, seed, width, height) {
+  const out = [];
+  polygon.forEach((a, i) => {
+    const b = polygon[(i + 1) % polygon.length];
+    out.push(a);
+    if (!onBorder(a, b, width, height)) out.push(...wavePoints(a, b, amp, seed));
+  });
+  return out;
 }
 function cellPolygon(voronoi, i) {
   const ring = voronoi.cellPolygon(i);
@@ -1632,7 +1694,7 @@ function sharesEdge(voronoi, a, b) {
   const pa = new Set(cellPolygon(voronoi, a).map(key));
   return cellPolygon(voronoi, b).filter((p) => pa.has(key(p))).length >= 2;
 }
-var NAMES, round, DEFAULT_MAP;
+var NAMES, ZONE_NAMES, round, WAVE_SEGMENTS, EDGE_EPS, MAP_SEED, DEFAULT_MAP;
 var init_map = __esm({
   "../../packages/engine/src/map.ts"() {
     "use strict";
@@ -1663,8 +1725,12 @@ var init_map = __esm({
       "Montju\xEFc",
       "Barceloneta"
     ];
+    ZONE_NAMES = ["Horta", "Sarri\xE0", "Gr\xE0cia", "Eixample", "Sant Mart\xED", "Sants", "Ciutat Vella"];
     round = (n) => Math.round(n * 100) / 100;
-    DEFAULT_MAP = generateMap();
+    WAVE_SEGMENTS = 10;
+    EDGE_EPS = 1e-6;
+    MAP_SEED = 58;
+    DEFAULT_MAP = generateMap({ seed: MAP_SEED, count: 7, relax: 0, split: "area", names: ZONE_NAMES, idPrefix: "z", wobble: 4 });
   }
 });
 
@@ -1751,12 +1817,20 @@ function warState(map, players, earnedToday, battles, today) {
   }
   const ordered = [...battles].sort((a, b) => a.at.localeCompare(b.at) || a.id - b.id);
   for (const b of ordered) {
+    if (!(b.to in owner)) continue;
     const piece = pieces[b.playerId];
     if (piece && b.day === today) piece.available = Math.max(0, piece.available - b.attackers);
     if (b.won) {
       owner[b.to] = b.team;
       garrison[b.to] = b.attackersLeft;
       if (piece) piece.territoryId = b.to;
+      const lost = map.territories.find((t) => t.id === b.to);
+      for (const p of players) {
+        const other2 = pieces[p.id];
+        if (!other2 || p.team === b.team || other2.territoryId !== b.to) continue;
+        const retreat = lost?.neighbors.filter((n) => owner[n] === p.team).sort()[0] ?? map.territories.find((t) => t.team === p.team && t.isHq && owner[t.id] === p.team)?.id ?? map.territories.find((t) => owner[t.id] === p.team)?.id;
+        if (retreat) other2.territoryId = retreat;
+      }
     } else {
       garrison[b.to] = b.defendersLeft;
     }
@@ -1791,6 +1865,7 @@ function toBattleRecord(row) {
 var init_war = __esm({
   "../../packages/engine/src/war.ts"() {
     "use strict";
+    init_map();
     init_pieces();
   }
 });

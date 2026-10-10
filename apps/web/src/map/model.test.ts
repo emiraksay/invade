@@ -86,7 +86,7 @@ describe('walkPhaseMapView', () => {
 
   it('summarises each team', () => {
     const view = walkPhaseMapView(DEFAULT_MAP, half);
-    expect(view.teams.white).toEqual({ soldiers: 22, maxSoldiers: 44, territories: 12, charge: 0.5 });
+    expect(view.teams.white).toEqual({ soldiers: 22, maxSoldiers: 44, territories: DEFAULT_MAP.territories.filter((t) => t.team === 'white').length, charge: 0.5 });
     expect(view.teams.black.charge).toBe(0);
   });
 

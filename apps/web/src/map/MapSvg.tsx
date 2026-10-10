@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Point, TeamId } from '@invade/engine';
-import type { MapView, PieceView, TerritoryView } from './model';
-import { ATTACK_RED, attackMark, garrisonAt, piecePositions, playerColors, useFlip, usePop, type AttackMark } from './pieces';
+import type { MapView, TerritoryView } from './model';
+import { ATTACK_RED, attackMark, useFlip, type AttackMark } from './pieces';
 import { insetPolygon, SLAB_GAP } from './geometry';
 import { CROWN_FILL, CROWN_H, CROWN_PATH, CROWN_W } from './crown';
 
@@ -96,47 +96,6 @@ function Tile({ t, pulse, selected, onTap, mark }: { t: TerritoryView; pulse: nu
   );
 }
 
-/** Garrison number on a territory (Figma map numbers): small white circle, black number. */
-function Garrison({ t, occupied }: { t: TerritoryView; occupied: boolean }) {
-  const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
-  const [x, gy] = garrisonAt(t.center, occupied);
-  const y = gy - lift;
-  return (
-    <g pointerEvents="none" aria-hidden>
-      <circle cx={x} cy={y} r={2.4} fill="#fff" stroke="#000" strokeWidth={0.3} />
-      <text x={x} y={y} fontSize={2.8} fontWeight={700} fill="#000" textAnchor="middle" dominantBaseline="central">{t.soldiers}</text>
-    </g>
-  );
-}
-
-/** A player piece: disc in team colour with the initial and a ring in the player's colour, soldier badge bottom-right, name below. */
-function Piece({ p, at, lift, color, onTap }: { p: PieceView; at: Point; lift: number; color: string; onTap?: (p: PieceView) => void }) {
-  const pop = usePop(p.soldiers);
-  const [x, y] = [at[0], at[1] - lift];
-  const light = p.team === 'white';
-  return (
-    <g
-      transform={`translate(${x} ${y})`}
-      pointerEvents={onTap ? undefined : 'none'}
-      onClick={onTap ? () => onTap(p) : undefined}
-      onKeyDown={onTap ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(p); } } : undefined}
-      tabIndex={onTap ? 0 : undefined}
-      role={onTap ? 'button' : undefined}
-      style={{ cursor: onTap ? 'pointer' : undefined }}
-      aria-label={`${p.name}, ${p.soldiers} soldiers${p.isMe ? ' (you)' : ''}`}>
-      {p.isMe && <circle r={7.6} fill="none" stroke={color} strokeWidth={2.4} strokeOpacity={0.4} />}
-      {p.isMe && <circle r={6.7} fill="none" stroke="#fff" strokeWidth={0.6} />}
-      <circle r={5.6} fill={light ? '#f4f4f4' : '#1d1a18'} stroke={color} strokeWidth={p.isMe ? 1.4 : 1} />
-      <text fontSize={5.2} fontWeight={700} fill={light ? '#111' : '#f2f2f2'} textAnchor="middle" dominantBaseline="central">{p.name.trim().charAt(0).toUpperCase() || '?'}</text>
-      <g key={pop} className={pop ? 'piece-pop' : undefined} style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
-        <circle cx={4.4} cy={4.2} r={2.6} fill="#fff" stroke="#000" strokeWidth={0.3} />
-        <text x={4.4} y={4.2} fontSize={3} fontWeight={700} fill="#000" textAnchor="middle" dominantBaseline="central">{p.soldiers}</text>
-      </g>
-      <text y={10} fontSize={3} fill="#fff" textAnchor="middle" style={{ paintOrder: 'stroke' }} stroke="#000" strokeWidth={0.6}>{p.isMe ? 'You' : p.name}</text>
-    </g>
-  );
-}
-
 export interface MapSvgProps {
   view: MapView;
   selected?: string | null;
@@ -145,8 +104,6 @@ export interface MapSvgProps {
   flat?: boolean;
   /** Territories I can attack right now (highlighted; the rest dims). Null when not choosing. */
   targets?: ReadonlySet<string> | null;
-  /** Tap on my own piece (starts choosing an attack). */
-  onPieceTap?: (p: PieceView) => void;
 }
 
 /** Counts up each time a team's soldiers increase, so tiles can replay their flash. */
@@ -162,15 +119,12 @@ function usePulses(view: MapView): Record<TeamId, number> {
   return pulses;
 }
 
-export function MapSvg({ view, selected = null, onTap, flat = false, targets = null, onPieceTap }: MapSvgProps) {
+export function MapSvg({ view, selected = null, onTap, flat = false, targets = null }: MapSvgProps) {
   const pulses = usePulses(view);
   const pad = 4;
   const extra = DEPTH + HQ_LIFT_MAX;
   // Paint back to front so a tile's side is covered by the tile in front of it.
   const tiles = [...view.territories].sort((a, b) => a.center[1] - b.center[1]);
-  const colors = playerColors(view.pieces);
-  const occupied = new Set(view.pieces.map((p) => p.territoryId));
-  const spots = piecePositions(view);
   const myTerritory = view.pieces.find((p) => p.isMe)?.territoryId;
   return (
     <div style={{ perspective: flat ? undefined : '900px', margin: flat ? 0 : '-10% 0 -6%' }}>
@@ -189,13 +143,6 @@ export function MapSvg({ view, selected = null, onTap, flat = false, targets = n
         {tiles.map((t) => (
           <Tile key={t.id} t={t} pulse={pulses[t.owner]} selected={t.id === selected} onTap={onTap} mark={attackMark(t.id, targets, myTerritory)} />
         ))}
-        {/* Figma: the HQ shows only its crown, no number next to it. */}
-        {tiles.filter((t) => !t.isHq).map((t) => <Garrison key={`g-${t.id}`} t={t} occupied={occupied.has(t.id)} />)}
-        {view.pieces.map((p) => {
-          const t = view.territories.find((x) => x.id === p.territoryId);
-          const lift = t?.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
-          return <Piece key={p.playerId} p={p} at={spots.get(p.playerId)!} lift={lift} color={colors.get(p.playerId)!} onTap={p.isMe ? onPieceTap : undefined} />;
-        })}
       </svg>
     </div>
   );

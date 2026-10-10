@@ -29,7 +29,7 @@ describe('odds and resolution (decision 4)', () => {
 describe('warState', () => {
   it('starts from the halves, garrisons of 2, pieces with today\'s soldiers', () => {
     const war = warState(DEFAULT_MAP, players, { emir: 8, kat: 4 }, [], TODAY);
-    expect(territoryShare(war, 'white')).toBe(0.5);
+    expect(territoryShare(war, 'white')).toBeCloseTo(0.5, 1); // half the land, by area
     expect(Object.values(war.garrison).every((g) => g === 2)).toBe(true);
     expect(war.pieces.emir!.available).toBe(8);
   });
@@ -77,3 +77,29 @@ describe('attackOptions', () => {
     expect(attackOptions(warState(DEFAULT_MAP, players, {}, [], TODAY), DEFAULT_MAP, 'emir')).toEqual([]);
   });
 });
+
+describe('warState on a new map', () => {
+  it('ignores battles for territories that are not on the map (fought on an earlier map)', () => {
+    const players = [{ id: 'emir', name: 'Emir', team: 'black' as const }];
+    const old = { id: 1, playerId: 'emir', team: 'black' as const, from: 't13', to: 't14', attackers: 4, defenders: 2, p: 0.67, roll: 0.1, won: true, attackersLeft: 3, defendersLeft: 0, day: '2026-10-10', at: '2026-10-10T12:00:00Z' };
+    const war = warState(DEFAULT_MAP, players, { emir: 4 }, [old], '2026-10-10');
+    expect(Object.keys(war.owner).sort()).toEqual(DEFAULT_MAP.territories.map((t) => t.id).sort());
+    expect(war.pieces.emir?.territoryId).not.toBe('t14');
+  });
+});
+
+describe('retreat', () => {
+  it('moves defenders off a captured territory to one their team still holds', () => {
+    const team = (t: 'white' | 'black', n: number) => Array.from({ length: n }, (_, i) => ({ id: `${t}${i}`, name: `${t}${i}`, team: t }));
+    const ps = [...team('white', 4), ...team('black', 4)];
+    const start = warState(DEFAULT_MAP, ps, { black0: 8 }, [], TODAY);
+    const target = attackOptions(start, DEFAULT_MAP, 'black0')[0]!;
+    const defenders = ps.filter((p) => p.team === 'white' && start.pieces[p.id]!.territoryId === target.to);
+    const war = warState(DEFAULT_MAP, ps, { black0: 8 }, [battle({ playerId: 'black0', team: 'black', to: target.to, attackers: 8, attackersLeft: 7 })], TODAY);
+    for (const d of defenders) expect(war.owner[war.pieces[d.id]!.territoryId]).toBe('white');
+    for (const p of ps.filter((x) => x.team === 'white')) {
+      for (const o of attackOptions(war, DEFAULT_MAP, p.id)) expect(war.owner[o.to]).toBe('black');
+    }
+  });
+});
+

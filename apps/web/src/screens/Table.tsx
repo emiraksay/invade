@@ -97,7 +97,7 @@ export function TableView({ teams, settings, live, code, players = [], events = 
         </div>
         <div style={{ display: 'grid', gap: 8 }}>
           <Battlefield view={view} bloom />
-          <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>● a player and the soldiers they carry today · numbers = garrison</p>
+          <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>7 zones · bigger zones are worth more of the map · 51% wins</p>
           <Feed events={events} players={players} timezone={settings.timezone} />
         </div>
         <div style={{ display: 'grid', gap: 14, textAlign: 'right' }}>
