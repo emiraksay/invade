@@ -118,9 +118,14 @@ button, input { font: inherit; color: inherit; }
   /* room for the floating navbar (49px + 12px from the bottom) */
   padding-bottom: calc(env(safe-area-inset-bottom) + 12px + var(--size-navbar-h) + 12px);
 }
-/* The map fills what is left and is clipped there, so the screen never grows past the phone. */
-.walk-map { flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-.walk-picked { position: absolute; left: 0; right: 0; bottom: 0; min-height: 18px; }
+/* The map fills what is left and is clipped there, so the screen never grows past the phone.
+   Its bottom fades to the background, so the reflection always dies out softly, never a hard cut. */
+.walk-map {
+  flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 99%);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent 99%);
+}
+.walk-picked { position: absolute; left: 0; right: 0; top: 0; min-height: 18px; z-index: 1; }
 .walk-scroll {
   flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px;
   /* Figma Idle: the list fades out under the navbar */
@@ -180,3 +185,9 @@ button, input { font: inherit; color: inherit; }
 }
 .sheet-close { background: none; border: 0; font-size: 20px; min-width: 44px; min-height: 44px; cursor: pointer; color: var(--color-text-secondary); }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* A teammate needs a nudge: red dot next to their name and on the navbar helmet. */
+.nudge-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 8px rgba(255, 59, 48, 0.7); flex: none; }
+.nav-zone { position: relative; }
+.nav-dot { position: absolute; top: 8px; left: calc(50% + 10px); }
+.nudge-note { display: grid; gap: 10px; margin: 0 16px 14px 46px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 59, 48, 0.08); border: 1px solid rgba(255, 59, 48, 0.25); }
