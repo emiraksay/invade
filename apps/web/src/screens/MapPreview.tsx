@@ -76,6 +76,14 @@ const FAKE_SETTINGS: GameSettings = {
   campaignDays: 30, winThreshold: 0.51, walkPhaseHours: 24, timezone: 'Europe/Madrid', teamNames: { white: 'White', black: 'Black' },
 };
 
+const FAKE_BATTLES: BattleRecord[] = (() => {
+  const war = warState(DEFAULT_MAP, FAKE_PLAYERS, {}, [], '2026-10-10');
+  const from = DEFAULT_MAP.territories.find((t) => war.owner[t.id] === 'white' && t.neighbors.some((n) => war.owner[n] === 'black'));
+  const to = from?.neighbors.find((n) => war.owner[n] === 'black');
+  if (!from || !to) return [];
+  return [{ id: 9, day: '2026-10-10', playerId: 'w1', team: 'white', from: from.id, to, attackers: 8, defenders: 2, p: 0.8, roll: 0.3, won: true, attackersLeft: 8, defendersLeft: 0, at: new Date(Date.now() - 35 * 60_000).toISOString() }];
+})();
+
 /** Dev only (`/preview/table`): the projector view with fake players, no Supabase. */
 export function TablePreview() {
   const day = '2026-10-10';
@@ -92,7 +100,7 @@ export function TablePreview() {
   };
   return (
     <>
-      <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={[...extra, ...FAKE_EVENTS]} generalPreload={FAKE_GENERAL} />
+      <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={[...extra, ...FAKE_EVENTS]} battles={FAKE_BATTLES} today={day} generalPreload={FAKE_GENERAL} />
       <button type="button" className="pill" style={{ position: 'fixed', top: 12, right: 12, zIndex: 40, fontSize: 13 }} onClick={fire}>+ milestone (demo)</button>
     </>
   );
