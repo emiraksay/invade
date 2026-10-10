@@ -108,6 +108,12 @@ button, input { font: inherit; color: inherit; }
 .tile-pulse { opacity: 0; animation: tile-pulse 1100ms ease-out both; }
 @keyframes tile-pulse { 0% { opacity: 0; } 15% { opacity: 0.85; } 100% { opacity: 0; } }
 
+/* Big-screen spotlight (Table): pop in, hold, fade out. */
+.spotlight-in { animation: spotlight-in 350ms cubic-bezier(.2,.9,.3,1.2) both; }
+.spotlight-out { animation: spotlight-out 500ms ease-in both; }
+@keyframes spotlight-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+@keyframes spotlight-out { from { opacity: 1; } to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -118,9 +124,14 @@ button, input { font: inherit; color: inherit; }
   /* room for the floating navbar (49px + 12px from the bottom) */
   padding-bottom: calc(env(safe-area-inset-bottom) + 12px + var(--size-navbar-h) + 12px);
 }
-/* The map fills what is left and is clipped there, so the screen never grows past the phone. */
-.walk-map { flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-.walk-picked { position: absolute; left: 0; right: 0; bottom: 0; min-height: 18px; }
+/* The map fills what is left and is clipped there, so the screen never grows past the phone.
+   Its bottom fades to the background, so the reflection always dies out softly, never a hard cut. */
+.walk-map {
+  flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 99%);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent 99%);
+}
+.walk-picked { position: absolute; left: 0; right: 0; top: 0; min-height: 18px; z-index: 1; }
 .walk-scroll {
   flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px;
   /* Figma Idle: the list fades out under the navbar */
@@ -229,3 +240,26 @@ button, input { font: inherit; color: inherit; }
 .attack-verdict { margin: 0; font-size: 30px; }
 .attack-lost { animation: attack-shake 450ms ease-in-out; }
 @keyframes attack-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+/* Figma "Base" conversion frames: steps → soldiers into the team's barracks, over a dimmed screen. */
+.arrive {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: rgba(8, 6, 5, 0.72); cursor: pointer;
+  animation: arrive-in 300ms ease-out both;
+}
+.arrive-row { display: flex; align-items: center; gap: 22px; }
+.arrive-stat { display: grid; justify-items: center; gap: 6px; font-size: 34px; min-width: 96px; font-variant-numeric: tabular-nums; }
+.arrive-arrow { position: relative; display: grid; justify-items: center; gap: 4px; }
+.arrive-arrow small { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
+.arrive-soldier { position: absolute; top: -2px; left: 0; height: 18px; opacity: 0; animation: arrive-march 900ms ease-in both; }
+.arrive-gain { margin: 0; font-size: 16px; color: var(--color-text-secondary); }
+.arrive-tap { margin: 48px 0 0; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; transition: opacity 400ms ease; }
+@keyframes arrive-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes arrive-march { 0% { opacity: 0; transform: translateX(-70px); } 20% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(90px) scale(0.6); } }
+/* A teammate needs a nudge: a white NUDGE tag by their name, a white dot on the navbar helmet.
+   Not red: in the Figma LOG, red circles are armies and attacks. */
+.nudge-dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); flex: none; }
+.nudge-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 4px; color: #fff; }
+.nav-zone { position: relative; }
+.nav-dot { position: absolute; top: 8px; left: calc(50% + 10px); }
+.nudge-note { display: grid; gap: 10px; margin: 0 16px 14px 46px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.18); }

@@ -1,17 +1,21 @@
 import { attackOptions, type AttackOption, type BattleRecord } from '@invade/engine';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type GeneralResponse, type Nudge, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { NavBar, type Tab } from '../components/NavBar';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
-import { NudgeCard } from '../components/NudgeCard';
+import { GeneralOrders } from '../components/GeneralOrders';
+import { SeasonBar } from '../components/SeasonBar';
+import { HowToPlay, useFirstVisitHowTo } from '../components/HowToPlay';
 import { DemoSync } from '../components/DemoSync';
 import { AttackSheet } from '../components/AttackSheet';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { SoldiersArrive } from '../components/SoldiersArrive';
+import { unseenArrival } from '../data/arrivals';
 import { LogBar } from '../components/LogBar';
 import type { MilestoneEvent } from '../data/events';
 import { Battlefield } from '../map/Battlefield';
@@ -19,6 +23,7 @@ import { walkPhaseMapView, type TerritoryView } from '../map/model';
 import { loadSession, type Session } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
+import { api } from '../data/api';
 
 export interface WalkViewProps {
   session: Session;
@@ -30,23 +35,45 @@ export interface WalkViewProps {
   /** Every battle so far (oldest first) and today's game day: the map replays the war from them. */
   battles?: BattleRecord[];
   day?: string;
-  /** Dev previews only: a canned nudge response so the card can be seen without the API. */
+  /** Dev previews only: canned responses so the cards can be seen without the API. */
   nudgePreload?: NudgeResponse;
+  generalPreload?: GeneralResponse;
 }
 
+const byPlayer = (r?: NudgeResponse): Record<string, Nudge> => Object.fromEntries((r?.nudges ?? []).map((n) => [n.playerId, n]));
+
 /**
- * ☀️ Walk Phase (Figma "Base" 298:26565 + "LOG" 457:3277), pure: everything it shows comes from props.
- * Map tab: countdown, stats, the battlefield as the scoreboard, OPEN LIST (milestones, nudge, tonight,
+ * ☀️ Walk Phase (Figma "Base" 298:26565 + "LOG" 457:3277). Pure apart from loading the nudges: everything else comes from props.
+ * Map tab: countdown, stats, the battlefield as the scoreboard, OPEN LIST (milestones, tonight,
  * sync) and the LOG bar, with no scrolling. The floating navbar switches to the Figma "Idle" team
- * panel and to Settings (Apple Health sync, SFX / Music / Notification).
+ * panel and to Settings (Apple Health sync, SFX / Music / Notification). Teammates who need a nudge
+ * get a NUDGE tag by their name (and a dot on the helmet); their row holds the message to send.
  */
-export function WalkView({ session, teams, settings, live, players = [], events = [], battles = [], day, nudgePreload }: WalkViewProps) {
+export function WalkView({ session, teams, settings, live, players = [], events = [], battles = [], day, nudgePreload, generalPreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
+  const [howToOpen, closeHowTo] = useFirstVisitHowTo();
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
   // Attack: tap my piece -> attackable territories light up -> tap one -> the sheet.
   const [aiming, setAiming] = useState(false);
   const [target, setTarget] = useState<AttackOption | null>(null);
+  // Last milestone event I tapped through on the "soldiers arrive" screen (per player, on this phone).
+  const seenKey = `invade:seen-arrival:${session.game.id}:${session.player.id}`;
+  const [seenId, setSeenId] = useState<number | null>(() => {
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(seenKey); } catch { /* private mode / blocked storage: no memory, fine */ }
+    const v = Number(raw);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  });
+  const [nudges, setNudges] = useState<Record<string, Nudge>>(() => byPlayer(nudgePreload));
+
+  // Who on my team needs a nudge: numbers from the engine, words by Claude (server). Once per open.
+  useEffect(() => {
+    if (nudgePreload) return;
+    let alive = true;
+    api.nudge(session.token).then((r) => { if (alive && r.ok) setNudges(byPlayer(r.data)); });
+    return () => { alive = false; };
+  }, [session.token, nudgePreload]);
 
   useEffect(() => {
     if (!listOpen) return;
@@ -80,6 +107,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
     : picked
       ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === mine ? ' · your side' : ''}`
       : myPiece ? 'Tap your piece to attack' : '';
+  const arrival = unseenArrival(events, session.player.id, seenId, Date.now());
   const stats = { teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories };
 
   return (
@@ -87,6 +115,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
       {tab === 'map' && (
         <>
           <Countdown timezone={settings.timezone} />
+          <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} />
           <StatsBar stats={stats} />
           <div className="walk-map">
             <Battlefield
@@ -109,12 +138,24 @@ export function WalkView({ session, teams, settings, live, players = [], events 
       {tab === 'team' && (
         <div className="walk-scroll">
           <StatsBar stats={stats} active={null} />
-          <TeamList team={teams[mine]} name={settings.teamNames[mine]} myId={session.player.id} />
+          <TeamList team={teams[mine]} name={settings.teamNames[mine]} myId={session.player.id} nudges={nudges} />
           <TeamList team={teams[other]} name={settings.teamNames[other]} myId={session.player.id} dim />
         </div>
       )}
       {tab === 'settings' && <div className="walk-scroll"><SettingsPanel /></div>}
-      <NavBar tab={tab} onTab={(t) => { setTab(t); setListOpen(false); }} />
+      {tab === 'map' && arrival && (
+        <SoldiersArrive
+          key={arrival.id}
+          ev={arrival}
+          teamSoldiers={myTeam.soldiers}
+          onDone={() => {
+            setSeenId(arrival.id); // dismiss first: storage may throw (private mode, Block All Cookies)
+            try { localStorage.setItem(seenKey, String(arrival.id)); } catch { /* shown again next load, acceptable */ }
+          }}
+        />
+      )}
+      <HowToPlay open={howToOpen} onClose={closeHowTo} />
+      <NavBar tab={tab} alert={Object.keys(nudges).length > 0} onTab={(t) => { setTab(t); setListOpen(false); }} />
 
       {target && (
         <AttackSheet
@@ -132,8 +173,8 @@ export function WalkView({ session, teams, settings, live, players = [], events 
               <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Today</h2>
               <button type="button" className="sheet-close" onClick={() => setListOpen(false)} aria-label="Close list">✕</button>
             </header>
+            <GeneralOrders token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}:${battles.length}`} preload={generalPreload} />
             <MilestoneTrack me={me} />
-            <NudgeCard token={session.token} preload={nudgePreload} />
             <TonightCard teams={teams} settings={settings} myTeam={mine} />
             <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }} href={SYNC_SHORTCUT_URL}>
               Sync from Apple Health

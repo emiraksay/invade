@@ -1,11 +1,15 @@
 import { useSearchParams } from 'react-router-dom';
-import { DEFAULT_MAP, type BattleRecord, type GameSettings, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, type BattleRecord, type GameSettings, type GeneralResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { TeamGeneral } from '../components/GeneralOrders';
 import { describeEvent, type MilestoneEvent } from '../data/events';
 import { Countdown } from '../components/Countdown';
+import { SeasonBar } from '../components/SeasonBar';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { useGameByCode } from '../data/useGameByCode';
 import { useGameDay } from '../data/useGameDay';
+import { JoinQr } from '../components/JoinQr';
+import { Spotlight } from '../components/Spotlight';
 import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
@@ -25,7 +29,7 @@ function TeamColumn({ team, name, align }: { team: TeamDay; name: string; align:
         </p>
       </header>
       {team.members.length === 0 && <p className="muted" style={{ margin: 0 }}>Nobody yet.</p>}
-      {team.members.map((m) => (
+      {[...team.members].sort((a, b) => b.soldiers - a.soldiers || b.steps - a.steps).map((m) => (
         <div key={m.player.id} className="item" style={{ flexDirection: align === 'right' ? 'row-reverse' : 'row', fontSize: 18 }}>
           <span className={`avatar avatar-${team.team}`} style={{ width: 34, height: 34 }} />
           <strong style={{ flex: 1 }}>{m.player.name}</strong>
@@ -49,6 +53,8 @@ export interface TableViewProps {
   code: string;
   players?: Player[];
   events?: MilestoneEvent[];
+  /** Dev previews only. */
+  generalPreload?: Partial<Record<TeamId, GeneralResponse>>;
 }
 
 /** The last few milestones, newest first: the projector's ticker under the map. */
@@ -71,7 +77,8 @@ function Feed({ events, players, timezone }: { events: MilestoneEvent[]; players
 }
 
 /** The big screen itself, pure: given today's teams it renders the countdown, both columns and the battlefield. */
-export function TableView({ teams, settings, live, code, players = [], events = [], battles = [], today }: TableViewProps) {
+export function TableView({ teams, settings, live, code, players = [], events = [], battles = [], today, generalPreload }: TableViewProps) {
+  const refreshKey = `${teams.white.soldiers}:${teams.black.soldiers}:${events[0]?.id ?? 0}:${battles.length}`;
   const view = walkPhaseMapView(DEFAULT_MAP, teams, { battles, today });
   const joinUrl = `${window.location.origin}/join?code=${code}`;
   return (
@@ -79,17 +86,33 @@ export function TableView({ teams, settings, live, code, players = [], events = 
       <header style={{ textAlign: 'center' }}>
         <p className="display" style={{ margin: 0, fontSize: 44, letterSpacing: '0.04em' }}>INVADE</p>
         <Countdown timezone={settings.timezone} size={26} />
+        <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} big />
       </header>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(420px, 1.4fr) minmax(260px, 1fr)', gap: 32, alignItems: 'start' }}>
-        <TeamColumn team={teams.white} name={settings.teamNames.white} align="left" />
+        <div style={{ display: 'grid', gap: 14 }}>
+          <TeamColumn team={teams.white} name={settings.teamNames.white} align="left" />
+          <TeamGeneral code={code} team="white" name={settings.teamNames.white} refreshKey={refreshKey} preload={generalPreload?.white} />
+        </div>
         <div style={{ display: 'grid', gap: 8 }}>
           <Battlefield view={view} bloom />
+          <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>● a player and the soldiers they carry today · numbers = garrison</p>
           <Feed events={events} players={players} timezone={settings.timezone} />
         </div>
-        <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
+        <div style={{ display: 'grid', gap: 14, textAlign: 'right' }}>
+          <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
+          <TeamGeneral code={code} team="black" name={settings.teamNames.black} refreshKey={refreshKey} preload={generalPreload?.black} />
+        </div>
       </div>
-      <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }} className="muted">
-        <span style={{ fontSize: 16 }}>Join: <strong style={{ color: '#fff' }}>{joinUrl}</strong></span>
+      <Spotlight events={events} battles={battles} players={players} teamNames={settings.teamNames} />
+      <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }} className="muted">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <JoinQr url={joinUrl} />
+          <div style={{ display: 'grid', gap: 4 }}>
+            <span className="display" style={{ fontSize: 18, color: '#fff' }}>Scan to join</span>
+            <span style={{ fontSize: 15 }}>{joinUrl}</span>
+            <span style={{ fontSize: 13 }}>Name, team, done. No app, no account.</span>
+          </div>
+        </div>
         <span aria-live="polite" style={{ fontSize: 14 }}>{live ? '● Live' : '○ Reconnecting…'}</span>
       </footer>
     </main>

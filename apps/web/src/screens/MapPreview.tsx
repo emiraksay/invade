@@ -3,6 +3,7 @@ import { DEFAULT_MAP, summarizeTeamDay, type GameSettings, type Player, type Ste
 import { TableView } from './Table';
 import { WalkView } from './WalkPhase';
 import type { MilestoneEvent } from '../data/events';
+import type { GeneralResponse } from '@invade/engine';
 import { Battlefield, type MapMode } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 
@@ -63,6 +64,12 @@ const FAKE_EVENTS: MilestoneEvent[] = [
   { id: 2, at: new Date(Date.now() - 50 * 60_000).toISOString(), playerId: 'b1', team: 'black', steps: 12_900, soldiers: 10, gained: 2 },
   { id: 1, at: new Date(Date.now() - 95 * 60_000).toISOString(), playerId: 'w2', team: 'white', steps: 5_100, soldiers: 4, gained: 4 },
 ];
+const FAKE_GENERAL: Record<'white' | 'black', GeneralResponse> = {
+  white: { day: '2026-10-10', writer: 'claude', order: { player: 'Kateryna', team: 'white', kind: 'attack', to: 't13', target: 'Eixample', soldiers: 8, defenders: 2, odds: 0.8 },
+    text: 'Kateryna, Eixample is soft: 2 defenders. Hit it with all 8. Eighty percent says it is ours.' },
+  black: { day: '2026-10-10', writer: 'claude', order: { player: 'Hasan', team: 'black', kind: 'bonus', stepsToGo: 20, threshold: 5_000, bonus: 1 },
+    text: 'Hasan, 20 steps. Twenty. Then the whole team earns the bonus. Move.' },
+};
 const FAKE_SETTINGS: GameSettings = {
   campaignDays: 30, winThreshold: 0.51, walkPhaseHours: 24, timezone: 'Europe/Madrid', teamNames: { white: 'White', black: 'Black' },
 };
@@ -70,12 +77,23 @@ const FAKE_SETTINGS: GameSettings = {
 /** Dev only (`/preview/table`): the projector view with fake players, no Supabase. */
 export function TablePreview() {
   const day = '2026-10-10';
+  const [extra, setExtra] = useState<MilestoneEvent[]>([]);
+  const fire = () => {
+    const id = 100 + extra.length;
+    const who = FAKE_PLAYERS[id % FAKE_PLAYERS.length]!;
+    setExtra((xs) => [{ id, at: new Date().toISOString(), playerId: who.id, team: who.team, steps: 5_000 + id * 37, soldiers: 4, gained: 4 }, ...xs]);
+  };
   const reports: StepReport[] = FAKE_PLAYERS.map((p) => ({ playerId: p.id, day, steps: FAKE_STEPS[p.id] ?? 0, source: 'demo', reportedAt: day }));
   const teams = {
     white: summarizeTeamDay('white', FAKE_PLAYERS, reports, day),
     black: summarizeTeamDay('black', FAKE_PLAYERS, reports, day),
   };
-  return <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={FAKE_EVENTS} />;
+  return (
+    <>
+      <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={[...extra, ...FAKE_EVENTS]} generalPreload={FAKE_GENERAL} />
+      <button type="button" className="pill" style={{ position: 'fixed', top: 12, right: 12, zIndex: 40, fontSize: 13 }} onClick={fire}>+ milestone (demo)</button>
+    </>
+  );
 }
 
 /** Dev only (`/preview/walk`): the whole Walk screen as Kateryna (White) sees it, with a canned nudge. */
@@ -94,5 +112,5 @@ export function WalkPreview() {
       { playerId: 'w2', name: 'Costi', steps: 6_120, stepsToGo: 3_880, gain: 4, unlocksBonus: false, message: 'Costi, 3,880 steps to +4 soldiers. Black is watching.' },
     ],
   };
-  return <WalkView session={session} teams={teams} settings={FAKE_SETTINGS} live players={FAKE_PLAYERS} events={FAKE_EVENTS} nudgePreload={nudgePreload} />;
+  return <WalkView session={session} teams={teams} settings={FAKE_SETTINGS} live players={FAKE_PLAYERS} events={FAKE_EVENTS} nudgePreload={nudgePreload} generalPreload={FAKE_GENERAL.white} />;
 }

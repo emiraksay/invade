@@ -4123,7 +4123,7 @@ function wrapFetchWithMiddleware(fetchFn, middleware, options, client2) {
   };
 }
 function createMiddlewareContext(options, client2) {
-  const cache = /* @__PURE__ */ new WeakMap();
+  const cache2 = /* @__PURE__ */ new WeakMap();
   return {
     options,
     // Resolved per chain, so changes to the client's `logLevel`/`logger`
@@ -4133,10 +4133,10 @@ function createMiddlewareContext(options, client2) {
       if (options?.stream && response.ok) {
         return parseMiddlewareResponse(response, options, client2);
       }
-      let parsed = cache.get(response);
+      let parsed = cache2.get(response);
       if (!parsed) {
         parsed = parseMiddlewareResponse(response, options, client2);
-        cache.set(response, parsed);
+        cache2.set(response, parsed);
       }
       return parsed;
     }
@@ -41520,12 +41520,149 @@ async function nudge(repo, input, now, writer) {
   return { ok: true, data: { day, team: player.team, nudges, writer: usedWriter } };
 }
 
+// server/general.ts
+init_sdk();
+init_src2();
+var STRONG_ODDS = 0.6;
+var attackOdds2 = (attackers, defenders) => attackers > 0 ? attackOdds(attackers, defenders) : 0;
+function nextBonusThreshold(team) {
+  const steps = team.members.map((m) => m.steps);
+  if (steps.length === 0) return null;
+  const unit = Math.max(1, Math.floor(steps.length / 2));
+  const lowest = Math.min(...steps);
+  if (lowest < 5e3) return { threshold: 5e3, bonus: unit };
+  if (lowest < 1e4) return { threshold: 1e4, bonus: 2 * unit - teamBonus(steps) };
+  return null;
+}
+function pickOrder({ me: me2, team, options, territory }) {
+  const base = { player: me2.player.name, team: me2.player.team };
+  let best = null;
+  for (const opt of options) {
+    const odds = attackOdds2(opt.maxAttackers, opt.defenders);
+    if (!best || odds > best.odds || odds === best.odds && opt.defenders < best.opt.defenders) best = { opt, odds };
+  }
+  if (best && best.odds >= STRONG_ODDS) {
+    return { ...base, kind: "attack", to: best.opt.to, target: best.opt.name, soldiers: best.opt.maxAttackers, defenders: best.opt.defenders, odds: Math.round(best.odds * 100) / 100 };
+  }
+  const bonus = nextBonusThreshold(team);
+  if (bonus && me2.steps < bonus.threshold) {
+    return { ...base, kind: "bonus", stepsToGo: bonus.threshold - me2.steps, threshold: bonus.threshold, bonus: bonus.bonus };
+  }
+  if (me2.next) return { ...base, kind: "walk", stepsToGo: me2.next.stepsToGo, gain: me2.next.gain };
+  return { ...base, kind: "hold", territory: territory ?? "your ground" };
+}
+var fmt2 = new Intl.NumberFormat("de-DE");
+function templateText(o) {
+  switch (o.kind) {
+    case "attack":
+      return `${o.player}, strike ${o.target} with ${o.soldiers} soldiers. ${Math.round(o.odds * 100)}% says we take it.`;
+    case "bonus":
+      return `${o.player}, ${fmt2.format(o.stepsToGo)} more steps and the whole team earns +${o.bonus}. They are waiting on you.`;
+    case "walk":
+      return `${o.player}, ${fmt2.format(o.stepsToGo)} more steps and ${o.gain} fresh soldiers join you.`;
+    case "hold":
+      return `${o.player}, hold ${o.territory}. Max army today. Tonight we move.`;
+  }
+}
+var MAX_CHARS = 140;
+var Output = z.object({ text: z.string().min(1) });
+var OUTPUT_SCHEMA = { type: "object", properties: { text: { type: "string" } }, required: ["text"], additionalProperties: false };
+var SYSTEM2 = `You are the General of a team in Invade, a game where friends walk in real life to earn soldiers and fight over a shared map of Barcelona neighbourhoods at night. You receive ONE order the game already decided, with its exact numbers. Rewrite it as one or two short lines in a war-commander's voice: punchy, confident, a little dry, addressing the player by first name. Keep every number exactly as given; never add numbers, places or promises. At most 140 characters in total. No emojis.`;
+var claudeWriter2 = async (order) => {
+  const client2 = new Anthropic({ timeout: 4e3, maxRetries: 0 });
+  const response = await client2.messages.create({
+    model: "claude-opus-5-5",
+    max_tokens: 200,
+    system: SYSTEM2,
+    output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+    messages: [{ role: "user", content: JSON.stringify(order) }]
+  });
+  if (response.stop_reason === "refusal") throw new Error("general: model declined");
+  const text = Output.parse(JSON.parse(response.content.find((b) => b.type === "text")?.text ?? "")).text.trim();
+  return text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS - 1).trimEnd()}\u2026` : text;
+};
+var CACHE_MS = 2 * 6e4;
+var cache = /* @__PURE__ */ new Map();
+function cachedWords(key, write, now = Date.now()) {
+  const hit = cache.get(key);
+  if (hit && hit.until > now) return Promise.resolve(hit.text);
+  return write().then((text) => {
+    cache.set(key, { text, until: now + CACHE_MS });
+    return text;
+  });
+}
+var requestSchema = z.union([
+  z.object({ token: z.string().trim().min(8).max(64) }),
+  z.object({ code: z.string().trim().toUpperCase().min(1).max(20), team: z.enum(["white", "black"]) })
+]);
+async function loadContext(repo, game, now) {
+  const ctx = await loadWarContext(repo, game, now);
+  return {
+    players: ctx.players,
+    days: ctx.teams,
+    attackOptions: (id) => attackOptions(ctx.war, ctx.map, id),
+    territoryOf: (id) => ctx.map.territories.find((t) => t.id === ctx.war.pieces[id]?.territoryId)?.name ?? null
+  };
+}
+var gainOf = (o) => o.kind === "bonus" ? o.bonus : o.kind === "walk" ? o.gain : 0;
+function teamOrder(orders) {
+  const attacks = orders.filter((o) => o.kind === "attack").sort((a, b) => b.odds - a.odds);
+  if (attacks[0]) return attacks[0];
+  const walks = orders.filter((o) => o.kind === "bonus" || o.kind === "walk").sort((a, b) => gainOf(b) - gainOf(a) || a.stepsToGo - b.stepsToGo);
+  return walks[0] ?? orders[0] ?? null;
+}
+async function general(repo, input, now, writer, load = loadContext) {
+  const parsed = requestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  let game;
+  let team;
+  let playerId;
+  if ("token" in parsed.data) {
+    const found = await repo.findByTokenHash(hashToken(parsed.data.token));
+    if (!found) return { ok: false, error: "Unknown code" };
+    game = found.game;
+    team = found.player.team;
+    playerId = found.player.id;
+  } else {
+    const g = await repo.findGameByCode(parsed.data.code);
+    if (!g) return { ok: false, error: "No game with that code" };
+    game = g;
+    team = parsed.data.team;
+    playerId = null;
+  }
+  const day = gameDayOf(now, game.settings.timezone);
+  const ctx = await load(repo, game, now);
+  const members = ctx.days[team].members;
+  const orderFor = (m) => pickOrder({ me: m, team: ctx.days[team], options: ctx.attackOptions(m.player.id), territory: ctx.territoryOf(m.player.id) });
+  let order;
+  if (playerId) {
+    const me2 = members.find((m) => m.player.id === playerId) ?? { player: ctx.players.find((p) => p.id === playerId), steps: 0, soldiers: 0, next: { milestone: { steps: 5e3, soldiers: 4 }, stepsToGo: 5e3, gain: 4 } };
+    order = orderFor(me2);
+  } else {
+    order = teamOrder(members.map(orderFor));
+  }
+  if (!order) return { ok: false, error: "Nobody on that team yet" };
+  const write = writer ?? (process.env.ANTHROPIC_API_KEY?.trim() ? claudeWriter2 : null);
+  let text = templateText(order);
+  let usedWriter = "template";
+  if (write) {
+    try {
+      text = await cachedWords(`${playerId ?? team}:${JSON.stringify(order)}`, () => write(order), now.getTime());
+      usedWriter = "claude";
+    } catch (e) {
+      console.error(`[general] writer failed, using template: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return { ok: true, data: { day, order, text, writer: usedWriter } };
+}
+
 // server/routes.ts
 var ROUTES = {
   "POST /api/join": join,
   "POST /api/me": me,
   "POST /api/steps": (repo, body) => submitSteps(repo, body, /* @__PURE__ */ new Date()),
   "POST /api/nudge": (repo, body) => nudge(repo, body, /* @__PURE__ */ new Date()),
+  "POST /api/general": (repo, body) => general(repo, body, /* @__PURE__ */ new Date()),
   "POST /api/attack": (repo, body) => attack(repo, body, /* @__PURE__ */ new Date())
 };
 async function health() {

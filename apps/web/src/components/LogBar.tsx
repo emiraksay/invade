@@ -41,7 +41,7 @@ export function LogBar({ events, players, timezone }: { events: MilestoneEvent[]
             </>
           );
         })() : (
-          <span className="muted">No milestones yet today. The first sync past 5,000 steps shows here.</span>
+          <span className="muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>No milestones yet today</span>
         )}
       </div>
       {arrow(-1, 'Later')}
