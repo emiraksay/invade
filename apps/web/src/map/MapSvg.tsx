@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Point, TeamId } from '@invade/engine';
-import type { MapView, TerritoryView } from './model';
+import type { MapView, PieceView, TerritoryView } from './model';
+import { GARRISON_OFFSET, usePop } from './pieces';
 import { insetPolygon, SLAB_GAP } from './geometry';
 import { CROWN_FILL, CROWN_H, CROWN_PATH, CROWN_W } from './crown';
 
 /**
  * 2.5D SVG battlefield in the Figma "Base" style: dark extruded tiles for Black, light glossy
  * tiles for White, glowing white edges that brighten as a team's charge rises, the HQ marked
- * with a crown. Pure presentation: everything it draws comes from MapView.
+ * with a crown, garrison numbers and the players' pieces. Pure presentation: everything it draws comes from MapView.
  * Works everywhere (no WebGL), so it is also the fallback for the three.js map.
  */
 
@@ -91,6 +92,37 @@ function Tile({ t, pulse, selected, onTap }: { t: TerritoryView; pulse: number; 
   );
 }
 
+/** Garrison number on a territory (Figma map numbers): small white circle, black number. */
+function Garrison({ t }: { t: TerritoryView }) {
+  const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
+  const x = t.center[0] + GARRISON_OFFSET[0], y = t.center[1] + GARRISON_OFFSET[1] - lift;
+  return (
+    <g pointerEvents="none" aria-hidden>
+      <circle cx={x} cy={y} r={2.4} fill="#fff" stroke="#000" strokeWidth={0.3} />
+      <text x={x} y={y} fontSize={2.8} fontWeight={700} fill="#000" textAnchor="middle" dominantBaseline="central">{t.soldiers}</text>
+    </g>
+  );
+}
+
+/** A player piece: disc in team colour with the initial, soldier badge bottom-right, name below. */
+function Piece({ p, lift }: { p: PieceView; lift: number }) {
+  const pop = usePop(p.soldiers);
+  const [x, y] = [p.position[0], p.position[1] - lift];
+  const light = p.team === 'white';
+  return (
+    <g transform={`translate(${x} ${y})`} pointerEvents="none" aria-label={`${p.name}, ${p.soldiers} soldiers${p.isMe ? ' (you)' : ''}`}>
+      {p.isMe && <circle r={6.6} fill="none" stroke="#fff" strokeWidth={2.4} strokeOpacity={0.35} />}
+      <circle r={4.6} fill={light ? '#f4f4f4' : '#1d1a18'} stroke={light ? '#1d1a18' : '#e8e8e8'} strokeWidth={p.isMe ? 1.3 : 0.7} />
+      <text fontSize={4.4} fontWeight={700} fill={light ? '#111' : '#f2f2f2'} textAnchor="middle" dominantBaseline="central">{p.name.trim().charAt(0).toUpperCase() || '?'}</text>
+      <g key={pop} className={pop ? 'piece-pop' : undefined} style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
+        <circle cx={3.6} cy={3.4} r={2.3} fill="#fff" stroke="#000" strokeWidth={0.3} />
+        <text x={3.6} y={3.4} fontSize={2.7} fontWeight={700} fill="#000" textAnchor="middle" dominantBaseline="central">{p.soldiers}</text>
+      </g>
+      <text y={8.6} fontSize={2.8} fill="#fff" textAnchor="middle" style={{ paintOrder: 'stroke' }} stroke="#000" strokeWidth={0.6}>{p.isMe ? 'You' : p.name}</text>
+    </g>
+  );
+}
+
 export interface MapSvgProps {
   view: MapView;
   selected?: string | null;
@@ -135,6 +167,12 @@ export function MapSvg({ view, selected = null, onTap, flat = false }: MapSvgPro
         {tiles.map((t) => (
           <Tile key={t.id} t={t} pulse={pulses[t.owner]} selected={t.id === selected} onTap={onTap} />
         ))}
+        {tiles.map((t) => <Garrison key={`g-${t.id}`} t={t} />)}
+        {view.pieces.map((p) => {
+          const t = view.territories.find((x) => x.id === p.territoryId);
+          const lift = t?.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
+          return <Piece key={p.playerId} p={p} lift={lift} />;
+        })}
       </svg>
     </div>
   );
