@@ -6,7 +6,7 @@ import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { Battlefield } from '../map/Battlefield';
-import { walkPhaseMapView } from '../map/model';
+import { walkPhaseMapView, type TerritoryView } from '../map/model';
 import { loadSession } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
@@ -19,6 +19,7 @@ export function WalkPhase() {
   const session = loadSession();
   const state = useGameDay(session?.game.id);
   const [listOpen, setListOpen] = useState(false);
+  const [picked, setPicked] = useState<TerritoryView | null>(null);
   if (!session) return <Navigate to="/join" replace />;
 
   if (state.status === 'loading') return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
@@ -36,7 +37,12 @@ export function WalkPhase() {
     <main className="screen">
       <Countdown timezone={settings.timezone} />
       <StatsBar stats={{ teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories }} />
-      <Battlefield view={view} />
+      <Battlefield view={view} selected={picked?.id} onTap={(t) => setPicked((p) => (p?.id === t.id ? null : t))} />
+      <p className="subtitle" style={{ minHeight: 20 }} aria-live="polite">
+        {picked
+          ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === session.player.team ? ' · your side' : ''}`
+          : 'Tap a territory'}
+      </p>
       <MilestoneTrack me={me} />
       <button type="button" className="pill pill-block" onClick={() => setListOpen((o) => !o)} aria-expanded={listOpen}>
         {listOpen ? 'Close list' : 'Open list'}
