@@ -20,7 +20,7 @@ Three people, three laptops, one `main` that always works. Speed comes from smal
 5. **Open a draft PR early:** `gh pr create --draft --fill`. Put `Closes #<issue>` in the body.
 6. **Stay in sync:** before you mark it ready, run `git pull --rebase origin main`, fix any conflicts, and confirm checks pass.
 7. **Ready for review:** `gh pr ready`. Ask in chat with the PR link. One approval from a teammate is needed, and reviews should take less than 10 minutes.
-8. **Merge:** squash only (the repo enforces this). The branch is deleted automatically. Then `git switch main && git pull`.
+8. **Merge: only Emir merges** (squash only, at the merge windows). Never merge your own PR. After a merge: `git switch main && git pull`.
 
 ## Rules
 
