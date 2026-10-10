@@ -1,4 +1,5 @@
 import { MILESTONES, STEP_CAP, type PlayerDay } from '@invade/engine';
+import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
 
@@ -17,7 +18,12 @@ export function MilestoneTrack({ me }: { me: PlayerDay }) {
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }} className="muted">
-        <span>0</span>{MILESTONES.map((m) => <span key={m.steps}>{fmt.format(m.steps)} · {m.soldiers}⚔</span>)}
+        <span>0</span>
+        {MILESTONES.map((m) => (
+          <span key={m.steps} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            {fmt.format(m.steps)} · {m.soldiers} <img src={helmet} alt="soldiers" height={11} style={{ opacity: 0.7 }} />
+          </span>
+        ))}
       </div>
       <p style={{ margin: 0, textAlign: 'center', fontSize: 15 }}>
         {me.steps === 0 && "You haven't walked yet today. Every step counts."}

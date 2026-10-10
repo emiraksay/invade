@@ -3,7 +3,7 @@ import { loadSession } from './data/session';
 import { ConnectHealth } from './screens/ConnectHealth';
 import { Join } from './screens/Join';
 import { WalkPhase } from './screens/WalkPhase';
-import { MapPreview, TablePreview } from './screens/MapPreview';
+import { MapPreview, TablePreview, WalkPreview } from './screens/MapPreview';
 import { Table } from './screens/Table';
 
 /** Signed-in players (session on this device) go to the game; everyone else joins first. */
@@ -22,6 +22,7 @@ export function App() {
         <Route path="/table" element={<Table />} />
         {import.meta.env.DEV && <Route path="/preview/map" element={<MapPreview />} />}
         {import.meta.env.DEV && <Route path="/preview/table" element={<TablePreview />} />}
+        {import.meta.env.DEV && <Route path="/preview/walk" element={<WalkPreview />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
