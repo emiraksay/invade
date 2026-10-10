@@ -27,7 +27,7 @@ Why the split: a game people bet their effort on needs numbers nobody can argue 
 - **Agents reviewing agents.** Each batch of work got a cold review from a fresh agent that did not write the code, with a checklist, plus a specialist review (three.js on iPhone Safari). Confirmed findings only were fixed: error boundary, WebGL context loss, render-on-demand for battery, tone mapping.
 - **Dev previews with fake data** (`/preview/walk`, `/preview/table`, `/preview/map`) so screens were checked at phone width before the database existed, and bugs found there, not on stage.
 - **A decisions log** (`docs/DECISIONS.md`) so no agent, and no person, undoes a decision by accident. Rules, contracts and docs are the single source of truth for every Claude session.
-- **Token count:** fill in from `npx ccusage@latest daily` on each laptop before 16:00: ______.
+- **Token count:** Kateryna's laptop today, Claude Code (`npx ccusage@latest daily`): **200 M tokens** read, of which 197 M from prompt cache, 0.42 M written, about $104 at list price. Add Emir's and Varvara's laptops before 16:00: ______.
 
 ## The scoring sheet, line by line (100 points)
 
