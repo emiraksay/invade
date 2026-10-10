@@ -41082,18 +41082,22 @@ async function me(repo, input) {
 var stepsSchema = tokenSchema.extend({
   // Shortcuts may send numbers as strings and with decimals (Health sums); normalise.
   steps: z.coerce.number().finite().min(0).max(MAX_PLAUSIBLE_DAILY_STEPS).transform(Math.floor),
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "day must be YYYY-MM-DD"),
+  // Optional: the server owns the clock. If a client sends a date, any YYYY-MM-DD inside it is used
+  // (Shortcuts may send extra text); otherwise today's game day is used.
+  day: z.string().optional(),
   source: z.enum(["apple_health", "demo"]).default("apple_health")
 });
 var DAY_MS = 864e5;
 async function submitSteps(repo, input, now) {
   const parsed = stepsSchema.safeParse(input);
   if (!parsed.success) return fail(issue(parsed.error));
-  const { token, steps, day, source } = parsed.data;
+  const { token, steps, source } = parsed.data;
   const found = await repo.findByTokenHash(hashToken(token));
   if (!found) return fail("Unknown code");
   const { player, game } = found;
   const today = gameDayOf(now, game.settings.timezone);
+  const sent = parsed.data.day?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  const day = sent ?? today;
   if (Math.abs(Date.parse(day) - Date.parse(today)) > DAY_MS) return fail(`day must be within one day of ${today}`);
   const { before, after } = await repo.reportSteps(player.id, day, steps, source);
   const gained = soldiersGained(before, after);
