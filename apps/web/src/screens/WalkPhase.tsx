@@ -5,7 +5,7 @@ import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
-import { MapSvg } from '../map/MapSvg';
+import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { loadSession } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
@@ -36,7 +36,7 @@ export function WalkPhase() {
     <main className="screen">
       <Countdown timezone={settings.timezone} />
       <StatsBar stats={{ teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories }} />
-      <MapSvg view={view} />
+      <Battlefield view={view} />
       <MilestoneTrack me={me} />
       <button type="button" className="pill pill-block" onClick={() => setListOpen((o) => !o)} aria-expanded={listOpen}>
         {listOpen ? 'Close list' : 'Open list'}

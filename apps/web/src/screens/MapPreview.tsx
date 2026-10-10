@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DEFAULT_MAP, MAX_SOLDIERS_PER_PLAYER, type TeamId } from '@invade/engine';
-import { MapSvg } from '../map/MapSvg';
+import { Battlefield, type MapMode } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 
 const MAX = 4 * MAX_SOLDIERS_PER_PLAYER + 4; // a full team of 4 at the cap, plus the +2B bonus
@@ -9,6 +9,7 @@ const MAX = 4 * MAX_SOLDIERS_PER_PLAYER + 4; // a full team of 4 at the cap, plu
 export function MapPreview() {
   const [soldiers, setSoldiers] = useState<Record<TeamId, number>>({ white: 18, black: 6 });
   const [selected, setSelected] = useState<TerritoryView | null>(null);
+  const [mode, setMode] = useState<MapMode>('auto');
   const view = walkPhaseMapView(DEFAULT_MAP, {
     white: { soldiers: soldiers.white, maxSoldiers: MAX },
     black: { soldiers: soldiers.black, maxSoldiers: MAX },
@@ -16,7 +17,12 @@ export function MapPreview() {
   return (
     <main className="screen">
       <h1 style={{ margin: 0, textAlign: 'center', fontSize: 20, fontWeight: 700 }}>MAP PREVIEW</h1>
-      <MapSvg view={view} selected={selected?.id} onTap={setSelected} />
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+        {(['auto', '3d', 'svg'] as MapMode[]).map((m) => (
+          <button key={m} type="button" className="pill" style={{ fontSize: 14, opacity: mode === m ? 1 : 0.5 }} onClick={() => setMode(m)}>{m}</button>
+        ))}
+      </div>
+      <Battlefield view={view} selected={selected?.id} onTap={setSelected} mode={mode} />
       <p className="subtitle" style={{ minHeight: 20 }}>
         {selected ? `${selected.name} · ${selected.owner}${selected.isHq ? ' HQ' : ''} · charge ${Math.round(selected.charge * 100)}%` : 'Tap a territory'}
       </p>
