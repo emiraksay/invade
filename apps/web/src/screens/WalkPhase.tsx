@@ -5,6 +5,7 @@ import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
+import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
@@ -14,7 +15,7 @@ import { useGameDay } from '../data/useGameDay';
 
 /**
  * ☀️ Walk Phase (Figma "Base" + "LOG"): countdown, stats, the battlefield as the scoreboard,
- * today's milestones, the nudge, and the team list behind OPEN LIST.
+ * today's milestones, the nudge, the team list behind OPEN LIST, and tonight's next step.
  */
 export function WalkPhase() {
   const session = loadSession();
@@ -55,6 +56,7 @@ export function WalkPhase() {
           <TeamList team={teams.black} name={settings.teamNames.black} myId={session.player.id} />
         </>
       )}
+      <TonightCard teams={teams} settings={settings} myTeam={session.player.team} />
 
       <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none' }} href={SYNC_SHORTCUT_URL}>
         Sync from Apple Health
