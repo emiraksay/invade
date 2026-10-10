@@ -91,6 +91,13 @@ describe('me', () => {
 });
 
 describe('submitSteps', () => {
+  it("uses today's game day when no day is sent, and tolerates extra text around a date", async () => {
+    const { repo } = memoryRepo();
+    const token = await joined(repo);
+    expect(await submitSteps(repo, { token, steps: 100 }, NOW)).toMatchObject({ ok: true, data: { day: '2026-10-10' } });
+    expect(await submitSteps(repo, { token, steps: 200, day: ' 2026-10-10\n' }, NOW)).toMatchObject({ ok: true, data: { day: '2026-10-10' } });
+  });
+
   it('stores steps, converts to soldiers, and fires a milestone event exactly once', async () => {
     const { repo, events } = memoryRepo();
     const token = await joined(repo);
