@@ -84,7 +84,9 @@ export async function me(repo: Repo, input: unknown): Promise<ApiResult<MeRespon
 const stepsSchema = tokenSchema.extend({
   // Shortcuts may send numbers as strings and with decimals (Health sums); normalise.
   steps: z.coerce.number().finite().min(0).max(MAX_PLAUSIBLE_DAILY_STEPS).transform(Math.floor),
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'day must be YYYY-MM-DD'),
+  // Optional: the server owns the clock. If a client sends a date, any YYYY-MM-DD inside it is used
+  // (Shortcuts may send extra text); otherwise today's game day is used.
+  day: z.string().optional(),
   source: z.enum(['apple_health', 'demo']).default('apple_health'),
 });
 
@@ -93,14 +95,16 @@ const DAY_MS = 86_400_000;
 export async function submitSteps(repo: Repo, input: unknown, now: Date): Promise<ApiResult<SubmitStepsResponse>> {
   const parsed = stepsSchema.safeParse(input);
   if (!parsed.success) return fail(issue(parsed.error));
-  const { token, steps, day, source } = parsed.data;
+  const { token, steps, source } = parsed.data;
 
   const found = await repo.findByTokenHash(hashToken(token));
   if (!found) return fail('Unknown code');
   const { player, game } = found;
 
-  // The server owns the clock: accept only today (game timezone), or ±1 day for late/early syncs.
+  // The server owns the clock: default to today (game timezone); a sent day may differ by at most ±1.
   const today = gameDayOf(now, game.settings.timezone);
+  const sent = parsed.data.day?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  const day = sent ?? today;
   if (Math.abs(Date.parse(day) - Date.parse(today)) > DAY_MS) return fail(`day must be within one day of ${today}`);
 
   const { before, after } = await repo.reportSteps(player.id, day, steps, source);

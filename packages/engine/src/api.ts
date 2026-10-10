@@ -13,7 +13,8 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 export interface SubmitStepsRequest {
   token: string;
   steps: number;
-  day: GameDay;
+  /** Optional: defaults to today in the game's timezone (the server owns the clock). */
+  day?: GameDay;
 }
 export interface SubmitStepsResponse {
   day: GameDay;
