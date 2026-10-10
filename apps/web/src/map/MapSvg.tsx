@@ -1,5 +1,6 @@
 import type { Point, TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
+import { insetPolygon, SLAB_GAP } from './geometry';
 
 /**
  * 2.5D SVG battlefield in the Figma "Base" style: dark extruded tiles for Black, light glossy
@@ -15,7 +16,7 @@ const TILT_DEG = 38;
 
 interface Palette { topDim: string; topLit: string; side: string; text: string }
 const PALETTE: Record<TeamId, Palette> = {
-  white: { topDim: '#86847f', topLit: '#f4f2ec', side: '#5f5e5a', text: '#121215' },
+  white: { topDim: '#86847f', topLit: '#eef1f6', side: '#5f5e5a', text: '#121215' },
   black: { topDim: '#171311', topLit: '#3b3532', side: '#070605', text: '#f2efe6' },
 };
 
@@ -46,6 +47,7 @@ function Tile({ t, selected, onTap }: { t: TerritoryView; selected: boolean; onT
   const depth = DEPTH + (t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0);
   const top = mix(p.topDim, p.topLit, t.charge);
   const [cx, cy] = t.center;
+  const poly = insetPolygon(t.polygon, t.center, SLAB_GAP);
   const interactive = Boolean(onTap);
   return (
     <g
@@ -56,12 +58,13 @@ function Tile({ t, selected, onTap }: { t: TerritoryView; selected: boolean; onT
       style={{ cursor: interactive ? 'pointer' : undefined }}
     >
       {/* Side (extrusion): the same polygon pushed down, painted first. */}
-      <path d={path(t.polygon, depth)} fill={p.side} />
+      <path d={path(poly, depth)} fill={p.side} />
       {/* Outer glow: a wide, faint white stroke that strengthens with charge. Cheap, no SVG filter. */}
-      <path d={path(t.polygon)} fill="none" stroke="#fff" strokeWidth={2.4} strokeOpacity={0.08 + 0.3 * t.charge} strokeLinejoin="round" style={{ transition: 'stroke-opacity 600ms ease' }} />
+      <path d={path(poly)} fill="none" stroke="#fff" strokeWidth={5} strokeOpacity={0.04 + 0.12 * t.charge} strokeLinejoin="round" style={{ transition: 'stroke-opacity 600ms ease' }} />
+      <path d={path(poly)} fill="none" stroke="#fff" strokeWidth={2.4} strokeOpacity={0.08 + 0.3 * t.charge} strokeLinejoin="round" style={{ transition: 'stroke-opacity 600ms ease' }} />
       {/* Top */}
       <path
-        d={path(t.polygon)}
+        d={path(poly)}
         fill={top}
         stroke={selected ? '#7fb6ff' : '#fff'}
         strokeWidth={selected ? 1.2 : 0.7}
@@ -102,7 +105,7 @@ export function MapSvg({ view, selected = null, onTap, flat = false }: MapSvgPro
         style={{
           display: 'block',
           userSelect: 'none',
-          transform: flat ? undefined : `rotateX(${TILT_DEG}deg)`,
+          transform: flat ? undefined : `rotateX(${TILT_DEG}deg) rotateZ(-7deg)`,
           transformOrigin: '50% 55%',
         }}
       >
