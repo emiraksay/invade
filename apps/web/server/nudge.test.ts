@@ -64,6 +64,7 @@ function memoryRepo() {
     async listStepReports(_g, day) {
       return [...steps.entries()].filter(([k]) => k.endsWith(`|${day}`)).map(([k, v]) => ({ playerId: k.split('|')[0]!, day, steps: v, source: 'demo' as const, reportedAt: day }));
     },
+    async listBattles() { return []; },
   };
   return repo;
 }

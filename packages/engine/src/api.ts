@@ -73,3 +73,20 @@ export interface NudgeResponse {
   /** 'claude' when the messages were written by the model, 'template' when the fallback text was used. */
   writer: 'claude' | 'template';
 }
+
+/** POST /api/attack: my piece attacks an enemy territory next to it. The server rolls (decision 4). */
+export interface AttackRequest {
+  token: string;
+  /** Territory id to attack (from attackOptions). */
+  to: string;
+  soldiers: number;
+}
+export interface AttackResponse {
+  won: boolean;
+  /** Win probability; the server rolled `roll` in [0, 1) and won if roll < p. */
+  p: number;
+  roll: number;
+  to: string;
+  attackersLeft: number;
+  defendersLeft: number;
+}

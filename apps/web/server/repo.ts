@@ -1,6 +1,6 @@
 // Supabase implementation of `Repo`, using the service role (server only, bypasses RLS).
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Player, StepReport, StepSource, TeamId } from '@invade/engine';
+import { toBattleRecord, type BattleRecord, type Player, type StepReport, type StepSource, type TeamId } from '@invade/engine';
 import type { GameRow, Repo } from './handlers';
 
 let client: SupabaseClient | null = null;
@@ -76,5 +76,18 @@ export const supabaseRepo: Repo = {
     return (data as { player_id: string; day: string; steps: number; source: string; updated_at: string }[]).map(
       (r): StepReport => ({ playerId: r.player_id, day: r.day, steps: r.steps, source: r.source as StepSource, reportedAt: r.updated_at }),
     );
+  },
+
+  async listBattles(gameId) {
+    const { data, error } = await db()
+      .from('events')
+      .select('id, type, payload, created_at')
+      .eq('game_id', gameId)
+      .eq('type', 'battle')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data as { id: number; type: string; payload: unknown; created_at: string }[])
+      .map(toBattleRecord)
+      .filter((b): b is BattleRecord => b !== null);
   },
 };

@@ -1,4 +1,4 @@
-import { STARTING_GARRISON, depthsFromHq as engineDepthsFromHq, startingPositions, type MapDef, type Point, type TeamDay, type TeamId } from '@invade/engine';
+import { depthsFromHq as engineDepthsFromHq, warState, type BattleRecord, type GameDay, type MapDef, type Point, type TeamDay, type TeamId, type WarState } from '@invade/engine';
 import { islandPoint, islandPolygon } from './island';
 
 /**
@@ -40,7 +40,7 @@ export interface PieceView {
   territoryId: string;
   /** Where to draw it, in map units on the island; nudged apart when players share a territory. */
   position: Point;
-  /** Soldiers this player earned today from walking (milestones 5k/10k/12k). */
+  /** Soldiers this player can still use today (earned from walking minus soldiers spent in attacks). */
   soldiers: number;
   steps: number;
   /** True for the viewer's own piece (highlight it). */
@@ -54,6 +54,8 @@ export interface MapView {
   teams: Record<TeamId, TeamView>;
   /** Every player's piece. Empty when member data isn't available (e.g. previews). */
   pieces: PieceView[];
+  /** The derived war (owners, garrisons, pieces) for engine helpers like attackOptions(view.war, map, myId). */
+  war: WarState;
 }
 
 /** What the Walk Phase view needs from each team's day (a subset of the engine's TeamDay). */
@@ -77,7 +79,19 @@ function nudge(center: Point, index: number, count: number): Point {
  * Today's soldiers sit in the team's HQ, and the team's half lights up from the HQ
  * toward the front line in proportion to soldiers / maxSoldiers.
  */
-export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress>, opts: { myId?: string } = {}): MapView {
+export function walkPhaseMapView(
+  map: MapDef,
+  teams: Record<TeamId, TeamProgress>,
+  opts: { myId?: string; battles?: readonly BattleRecord[]; today?: GameDay } = {},
+): MapView {
+  const members = [...(teams.white.members ?? []), ...(teams.black.members ?? [])];
+  const war = warState(
+    map,
+    members.map((m) => m.player),
+    Object.fromEntries(members.map((m) => [m.player.id, m.soldiers])),
+    opts.battles ?? [],
+    opts.today ?? '',
+  );
   const depths: Record<TeamId, Map<string, number>> = {
     white: depthsFromHq(map, 'white'),
     black: depthsFromHq(map, 'black'),
@@ -92,13 +106,13 @@ export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress
     return {
       id: t.id,
       name: t.name,
-      owner: t.team,
+      owner: war.owner[t.id] ?? t.team,
       isHq: t.isHq,
       // Drawn on the Figma's island outline; the engine's map stays a rectangle.
       polygon: islandPolygon(t.polygon, map.width, map.height),
       center: islandPoint(t.center, map.width, map.height),
       neighbors: t.neighbors,
-      soldiers: STARTING_GARRISON + (t.isHq ? teams[t.team].bonus ?? 0 : 0),
+      soldiers: (war.garrison[t.id] ?? 0) + (t.isHq ? teams[t.team].bonus ?? 0 : 0),
       charge: clamp01(teamCharge(t.team) * levels - d),
       depth: d,
     };
@@ -107,13 +121,12 @@ export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress
   const teamView = (team: TeamId): TeamView => ({
     soldiers: teams[team].soldiers,
     maxSoldiers: teams[team].maxSoldiers,
-    territories: map.territories.filter((t) => t.team === team).length,
+    territories: Object.values(war.owner).filter((o) => o === team).length,
     charge: teamCharge(team),
   });
 
-  // Pieces: every member stands on their starting territory with today's soldiers.
-  const members = [...(teams.white.members ?? []), ...(teams.black.members ?? [])];
-  const positions = startingPositions(map, members.map((m) => m.player));
+  // Pieces: every member stands where the war put them, with the soldiers they can still use today.
+  const positions = new Map(Object.entries(war.pieces).map(([id, p]) => [id, p.territoryId]));
   const centers = new Map(territories.map((t) => [t.id, t.center]));
   const crowd = new Map<string, number>();
   for (const id of positions.values()) crowd.set(id, (crowd.get(id) ?? 0) + 1);
@@ -130,7 +143,7 @@ export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress
       team: m.player.team,
       territoryId,
       position: nudge(center, i, crowd.get(territoryId) ?? 1),
-      soldiers: m.soldiers,
+      soldiers: war.pieces[m.player.id]?.available ?? m.soldiers,
       steps: m.steps,
       isMe: m.player.id === opts.myId,
     }];
@@ -142,6 +155,7 @@ export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress
     territories,
     teams: { white: teamView('white'), black: teamView('black') },
     pieces,
+    war,
   };
 }
 

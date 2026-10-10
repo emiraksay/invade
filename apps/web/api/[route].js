@@ -39,6 +39,1776 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// ../../packages/engine/src/types.ts
+var init_types = __esm({
+  "../../packages/engine/src/types.ts"() {
+    "use strict";
+  }
+});
+
+// ../../packages/engine/src/api.ts
+var init_api = __esm({
+  "../../packages/engine/src/api.ts"() {
+    "use strict";
+  }
+});
+
+// ../../packages/engine/src/steps.ts
+function stepsToSoldiers(steps) {
+  let soldiers = 0;
+  for (const m of MILESTONES) if (steps >= m.steps) soldiers = m.soldiers;
+  return soldiers;
+}
+function nextMilestone(steps) {
+  const current = stepsToSoldiers(steps);
+  const milestone = MILESTONES.find((m) => steps < m.steps);
+  if (!milestone) return null;
+  return { milestone, stepsToGo: milestone.steps - steps, gain: milestone.soldiers - current };
+}
+function teamBonus(memberSteps) {
+  if (memberSteps.length === 0) return 0;
+  const unit = Math.max(1, Math.floor(memberSteps.length / 2));
+  const lowest = Math.min(...memberSteps);
+  if (lowest >= 1e4) return 2 * unit;
+  if (lowest >= 5e3) return unit;
+  return 0;
+}
+function mergeSteps(stored, incoming) {
+  return Math.max(stored ?? 0, incoming);
+}
+function soldiersGained(before, after) {
+  return Math.max(0, stepsToSoldiers(after) - stepsToSoldiers(before));
+}
+function summarizePlayerDay(player, steps) {
+  return { player, steps, soldiers: stepsToSoldiers(steps), next: nextMilestone(steps) };
+}
+function summarizeTeamDay(team, players, reports, day) {
+  const members = players.filter((p) => p.team === team).map((p) => {
+    const steps = reports.filter((r) => r.playerId === p.id && r.day === day).reduce((max, r) => mergeSteps(max, r.steps), 0);
+    return summarizePlayerDay(p, steps);
+  });
+  const memberSteps = members.map((m) => m.steps);
+  const memberSoldiers = members.reduce((sum2, m) => sum2 + m.soldiers, 0);
+  const bonus = teamBonus(memberSteps);
+  const unit = members.length === 0 ? 0 : Math.max(1, Math.floor(members.length / 2));
+  return {
+    team,
+    members,
+    steps: memberSteps.reduce((a, b) => a + b, 0),
+    memberSoldiers,
+    bonus,
+    soldiers: memberSoldiers + bonus,
+    maxSoldiers: members.length * MAX_SOLDIERS_PER_PLAYER + 2 * unit
+  };
+}
+var MILESTONES, MAX_SOLDIERS_PER_PLAYER, MAX_PLAUSIBLE_DAILY_STEPS;
+var init_steps = __esm({
+  "../../packages/engine/src/steps.ts"() {
+    "use strict";
+    MILESTONES = [
+      { steps: 5e3, soldiers: 4 },
+      { steps: 1e4, soldiers: 8 },
+      { steps: 12e3, soldiers: 10 }
+    ];
+    MAX_SOLDIERS_PER_PLAYER = 10;
+    MAX_PLAUSIBLE_DAILY_STEPS = 1e5;
+  }
+});
+
+// ../../node_modules/robust-predicates/esm/util.js
+function sum(elen, e, flen, f, h) {
+  let Q, Qnew, hh, bvirt;
+  let enow = e[0];
+  let fnow = f[0];
+  let eindex = 0;
+  let findex = 0;
+  if (fnow > enow === fnow > -enow) {
+    Q = enow;
+    enow = e[++eindex];
+  } else {
+    Q = fnow;
+    fnow = f[++findex];
+  }
+  let hindex = 0;
+  if (eindex < elen && findex < flen) {
+    if (fnow > enow === fnow > -enow) {
+      Qnew = enow + Q;
+      hh = Q - (Qnew - enow);
+      enow = e[++eindex];
+    } else {
+      Qnew = fnow + Q;
+      hh = Q - (Qnew - fnow);
+      fnow = f[++findex];
+    }
+    Q = Qnew;
+    if (hh !== 0) {
+      h[hindex++] = hh;
+    }
+    while (eindex < elen && findex < flen) {
+      if (fnow > enow === fnow > -enow) {
+        Qnew = Q + enow;
+        bvirt = Qnew - Q;
+        hh = Q - (Qnew - bvirt) + (enow - bvirt);
+        enow = e[++eindex];
+      } else {
+        Qnew = Q + fnow;
+        bvirt = Qnew - Q;
+        hh = Q - (Qnew - bvirt) + (fnow - bvirt);
+        fnow = f[++findex];
+      }
+      Q = Qnew;
+      if (hh !== 0) {
+        h[hindex++] = hh;
+      }
+    }
+  }
+  while (eindex < elen) {
+    Qnew = Q + enow;
+    bvirt = Qnew - Q;
+    hh = Q - (Qnew - bvirt) + (enow - bvirt);
+    enow = e[++eindex];
+    Q = Qnew;
+    if (hh !== 0) {
+      h[hindex++] = hh;
+    }
+  }
+  while (findex < flen) {
+    Qnew = Q + fnow;
+    bvirt = Qnew - Q;
+    hh = Q - (Qnew - bvirt) + (fnow - bvirt);
+    fnow = f[++findex];
+    Q = Qnew;
+    if (hh !== 0) {
+      h[hindex++] = hh;
+    }
+  }
+  if (Q !== 0 || hindex === 0) {
+    h[hindex++] = Q;
+  }
+  return hindex;
+}
+function estimate(elen, e) {
+  let Q = e[0];
+  for (let i = 1; i < elen; i++) Q += e[i];
+  return Q;
+}
+function vec(n) {
+  return new Float64Array(n);
+}
+var epsilon, splitter, resulterrbound;
+var init_util = __esm({
+  "../../node_modules/robust-predicates/esm/util.js"() {
+    epsilon = 11102230246251565e-32;
+    splitter = 134217729;
+    resulterrbound = (3 + 8 * epsilon) * epsilon;
+  }
+});
+
+// ../../node_modules/robust-predicates/esm/orient2d.js
+function orient2dadapt(ax, ay, bx, by, cx, cy, detsum) {
+  let acxtail, acytail, bcxtail, bcytail;
+  let bvirt, c, ahi, alo, bhi, blo, _i, _j, _0, s1, s0, t1, t0, u32;
+  const acx = ax - cx;
+  const bcx = bx - cx;
+  const acy = ay - cy;
+  const bcy = by - cy;
+  s1 = acx * bcy;
+  c = splitter * acx;
+  ahi = c - (c - acx);
+  alo = acx - ahi;
+  c = splitter * bcy;
+  bhi = c - (c - bcy);
+  blo = bcy - bhi;
+  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
+  t1 = acy * bcx;
+  c = splitter * acy;
+  ahi = c - (c - acy);
+  alo = acy - ahi;
+  c = splitter * bcx;
+  bhi = c - (c - bcx);
+  blo = bcx - bhi;
+  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
+  _i = s0 - t0;
+  bvirt = s0 - _i;
+  B[0] = s0 - (_i + bvirt) + (bvirt - t0);
+  _j = s1 + _i;
+  bvirt = _j - s1;
+  _0 = s1 - (_j - bvirt) + (_i - bvirt);
+  _i = _0 - t1;
+  bvirt = _0 - _i;
+  B[1] = _0 - (_i + bvirt) + (bvirt - t1);
+  u32 = _j + _i;
+  bvirt = u32 - _j;
+  B[2] = _j - (u32 - bvirt) + (_i - bvirt);
+  B[3] = u32;
+  let det = estimate(4, B);
+  let errbound = ccwerrboundB * detsum;
+  if (det >= errbound || -det >= errbound) {
+    return det;
+  }
+  bvirt = ax - acx;
+  acxtail = ax - (acx + bvirt) + (bvirt - cx);
+  bvirt = bx - bcx;
+  bcxtail = bx - (bcx + bvirt) + (bvirt - cx);
+  bvirt = ay - acy;
+  acytail = ay - (acy + bvirt) + (bvirt - cy);
+  bvirt = by - bcy;
+  bcytail = by - (bcy + bvirt) + (bvirt - cy);
+  if (acxtail === 0 && acytail === 0 && bcxtail === 0 && bcytail === 0) {
+    return det;
+  }
+  errbound = ccwerrboundC * detsum + resulterrbound * Math.abs(det);
+  det += acx * bcytail + bcy * acxtail - (acy * bcxtail + bcx * acytail);
+  if (det >= errbound || -det >= errbound) return det;
+  s1 = acxtail * bcy;
+  c = splitter * acxtail;
+  ahi = c - (c - acxtail);
+  alo = acxtail - ahi;
+  c = splitter * bcy;
+  bhi = c - (c - bcy);
+  blo = bcy - bhi;
+  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
+  t1 = acytail * bcx;
+  c = splitter * acytail;
+  ahi = c - (c - acytail);
+  alo = acytail - ahi;
+  c = splitter * bcx;
+  bhi = c - (c - bcx);
+  blo = bcx - bhi;
+  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
+  _i = s0 - t0;
+  bvirt = s0 - _i;
+  u[0] = s0 - (_i + bvirt) + (bvirt - t0);
+  _j = s1 + _i;
+  bvirt = _j - s1;
+  _0 = s1 - (_j - bvirt) + (_i - bvirt);
+  _i = _0 - t1;
+  bvirt = _0 - _i;
+  u[1] = _0 - (_i + bvirt) + (bvirt - t1);
+  u32 = _j + _i;
+  bvirt = u32 - _j;
+  u[2] = _j - (u32 - bvirt) + (_i - bvirt);
+  u[3] = u32;
+  const C1len = sum(4, B, 4, u, C1);
+  s1 = acx * bcytail;
+  c = splitter * acx;
+  ahi = c - (c - acx);
+  alo = acx - ahi;
+  c = splitter * bcytail;
+  bhi = c - (c - bcytail);
+  blo = bcytail - bhi;
+  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
+  t1 = acy * bcxtail;
+  c = splitter * acy;
+  ahi = c - (c - acy);
+  alo = acy - ahi;
+  c = splitter * bcxtail;
+  bhi = c - (c - bcxtail);
+  blo = bcxtail - bhi;
+  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
+  _i = s0 - t0;
+  bvirt = s0 - _i;
+  u[0] = s0 - (_i + bvirt) + (bvirt - t0);
+  _j = s1 + _i;
+  bvirt = _j - s1;
+  _0 = s1 - (_j - bvirt) + (_i - bvirt);
+  _i = _0 - t1;
+  bvirt = _0 - _i;
+  u[1] = _0 - (_i + bvirt) + (bvirt - t1);
+  u32 = _j + _i;
+  bvirt = u32 - _j;
+  u[2] = _j - (u32 - bvirt) + (_i - bvirt);
+  u[3] = u32;
+  const C2len = sum(C1len, C1, 4, u, C2);
+  s1 = acxtail * bcytail;
+  c = splitter * acxtail;
+  ahi = c - (c - acxtail);
+  alo = acxtail - ahi;
+  c = splitter * bcytail;
+  bhi = c - (c - bcytail);
+  blo = bcytail - bhi;
+  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
+  t1 = acytail * bcxtail;
+  c = splitter * acytail;
+  ahi = c - (c - acytail);
+  alo = acytail - ahi;
+  c = splitter * bcxtail;
+  bhi = c - (c - bcxtail);
+  blo = bcxtail - bhi;
+  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
+  _i = s0 - t0;
+  bvirt = s0 - _i;
+  u[0] = s0 - (_i + bvirt) + (bvirt - t0);
+  _j = s1 + _i;
+  bvirt = _j - s1;
+  _0 = s1 - (_j - bvirt) + (_i - bvirt);
+  _i = _0 - t1;
+  bvirt = _0 - _i;
+  u[1] = _0 - (_i + bvirt) + (bvirt - t1);
+  u32 = _j + _i;
+  bvirt = u32 - _j;
+  u[2] = _j - (u32 - bvirt) + (_i - bvirt);
+  u[3] = u32;
+  const Dlen = sum(C2len, C2, 4, u, D);
+  return D[Dlen - 1];
+}
+function orient2d(ax, ay, bx, by, cx, cy) {
+  const detleft = (ay - cy) * (bx - cx);
+  const detright = (ax - cx) * (by - cy);
+  const det = detleft - detright;
+  const detsum = Math.abs(detleft + detright);
+  if (Math.abs(det) >= ccwerrboundA * detsum) return det;
+  return -orient2dadapt(ax, ay, bx, by, cx, cy, detsum);
+}
+var ccwerrboundA, ccwerrboundB, ccwerrboundC, B, C1, C2, D, u;
+var init_orient2d = __esm({
+  "../../node_modules/robust-predicates/esm/orient2d.js"() {
+    init_util();
+    ccwerrboundA = (3 + 16 * epsilon) * epsilon;
+    ccwerrboundB = (2 + 12 * epsilon) * epsilon;
+    ccwerrboundC = (9 + 64 * epsilon) * epsilon * epsilon;
+    B = vec(4);
+    C1 = vec(8);
+    C2 = vec(12);
+    D = vec(16);
+    u = vec(4);
+  }
+});
+
+// ../../node_modules/robust-predicates/esm/orient3d.js
+var o3derrboundA, o3derrboundB, o3derrboundC, bc, ca, ab, at_b, at_c, bt_c, bt_a, ct_a, ct_b, bct, cat, abt, u2, _8, _8b, _16, _12, fin, fin2;
+var init_orient3d = __esm({
+  "../../node_modules/robust-predicates/esm/orient3d.js"() {
+    init_util();
+    o3derrboundA = (7 + 56 * epsilon) * epsilon;
+    o3derrboundB = (3 + 28 * epsilon) * epsilon;
+    o3derrboundC = (26 + 288 * epsilon) * epsilon * epsilon;
+    bc = vec(4);
+    ca = vec(4);
+    ab = vec(4);
+    at_b = vec(4);
+    at_c = vec(4);
+    bt_c = vec(4);
+    bt_a = vec(4);
+    ct_a = vec(4);
+    ct_b = vec(4);
+    bct = vec(8);
+    cat = vec(8);
+    abt = vec(8);
+    u2 = vec(4);
+    _8 = vec(8);
+    _8b = vec(8);
+    _16 = vec(16);
+    _12 = vec(12);
+    fin = vec(192);
+    fin2 = vec(192);
+  }
+});
+
+// ../../node_modules/robust-predicates/esm/incircle.js
+var iccerrboundA, iccerrboundB, iccerrboundC, bc2, ca2, ab2, aa, bb, cc, u3, v, axtbc, aytbc, bxtca, bytca, cxtab, cytab, abt2, bct2, cat2, abtt, bctt, catt, _82, _162, _16b, _16c, _32, _32b, _48, _64, fin3, fin22;
+var init_incircle = __esm({
+  "../../node_modules/robust-predicates/esm/incircle.js"() {
+    init_util();
+    iccerrboundA = (10 + 96 * epsilon) * epsilon;
+    iccerrboundB = (4 + 48 * epsilon) * epsilon;
+    iccerrboundC = (44 + 576 * epsilon) * epsilon * epsilon;
+    bc2 = vec(4);
+    ca2 = vec(4);
+    ab2 = vec(4);
+    aa = vec(4);
+    bb = vec(4);
+    cc = vec(4);
+    u3 = vec(4);
+    v = vec(4);
+    axtbc = vec(8);
+    aytbc = vec(8);
+    bxtca = vec(8);
+    bytca = vec(8);
+    cxtab = vec(8);
+    cytab = vec(8);
+    abt2 = vec(8);
+    bct2 = vec(8);
+    cat2 = vec(8);
+    abtt = vec(4);
+    bctt = vec(4);
+    catt = vec(4);
+    _82 = vec(8);
+    _162 = vec(16);
+    _16b = vec(16);
+    _16c = vec(16);
+    _32 = vec(32);
+    _32b = vec(32);
+    _48 = vec(48);
+    _64 = vec(64);
+    fin3 = vec(1152);
+    fin22 = vec(1152);
+  }
+});
+
+// ../../node_modules/robust-predicates/esm/insphere.js
+var isperrboundA, isperrboundB, isperrboundC, ab3, bc3, cd, de, ea, ac, bd, ce, da, eb, abc, bcd, cde, dea, eab, abd, bce, cda, deb, eac, adet, bdet, cdet, ddet, edet, abdet, cddet, cdedet, deter, _83, _8b2, _8c, _163, _24, _482, _48b, _96, _192, _384x, _384y, _384z, _768, xdet, ydet, zdet, fin4;
+var init_insphere = __esm({
+  "../../node_modules/robust-predicates/esm/insphere.js"() {
+    init_util();
+    isperrboundA = (16 + 224 * epsilon) * epsilon;
+    isperrboundB = (5 + 72 * epsilon) * epsilon;
+    isperrboundC = (71 + 1408 * epsilon) * epsilon * epsilon;
+    ab3 = vec(4);
+    bc3 = vec(4);
+    cd = vec(4);
+    de = vec(4);
+    ea = vec(4);
+    ac = vec(4);
+    bd = vec(4);
+    ce = vec(4);
+    da = vec(4);
+    eb = vec(4);
+    abc = vec(24);
+    bcd = vec(24);
+    cde = vec(24);
+    dea = vec(24);
+    eab = vec(24);
+    abd = vec(24);
+    bce = vec(24);
+    cda = vec(24);
+    deb = vec(24);
+    eac = vec(24);
+    adet = vec(1152);
+    bdet = vec(1152);
+    cdet = vec(1152);
+    ddet = vec(1152);
+    edet = vec(1152);
+    abdet = vec(2304);
+    cddet = vec(2304);
+    cdedet = vec(3456);
+    deter = vec(5760);
+    _83 = vec(8);
+    _8b2 = vec(8);
+    _8c = vec(8);
+    _163 = vec(16);
+    _24 = vec(24);
+    _482 = vec(48);
+    _48b = vec(48);
+    _96 = vec(96);
+    _192 = vec(192);
+    _384x = vec(384);
+    _384y = vec(384);
+    _384z = vec(384);
+    _768 = vec(768);
+    xdet = vec(96);
+    ydet = vec(96);
+    zdet = vec(96);
+    fin4 = vec(1152);
+  }
+});
+
+// ../../node_modules/robust-predicates/index.js
+var init_robust_predicates = __esm({
+  "../../node_modules/robust-predicates/index.js"() {
+    init_orient2d();
+    init_orient3d();
+    init_incircle();
+    init_insphere();
+  }
+});
+
+// ../../node_modules/delaunator/index.js
+function pseudoAngle(dx, dy) {
+  const p = dx / (Math.abs(dx) + Math.abs(dy));
+  return (dy > 0 ? 3 - p : 1 + p) / 4;
+}
+function dist(ax, ay, bx, by) {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
+}
+function inCircle(ax, ay, bx, by, cx, cy, px, py) {
+  const dx = ax - px;
+  const dy = ay - py;
+  const ex = bx - px;
+  const ey = by - py;
+  const fx = cx - px;
+  const fy = cy - py;
+  const ap = dx * dx + dy * dy;
+  const bp = ex * ex + ey * ey;
+  const cp2 = fx * fx + fy * fy;
+  return dx * (ey * cp2 - bp * fy) - dy * (ex * cp2 - bp * fx) + ap * (ex * fy - ey * fx) < 0;
+}
+function circumradius(ax, ay, bx, by, cx, cy) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const ex = cx - ax;
+  const ey = cy - ay;
+  const bl = dx * dx + dy * dy;
+  const cl = ex * ex + ey * ey;
+  const d = 0.5 / (dx * ey - dy * ex);
+  const x = (ey * bl - dy * cl) * d;
+  const y = (dx * cl - ex * bl) * d;
+  return x * x + y * y;
+}
+function circumcenter(ax, ay, bx, by, cx, cy) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const ex = cx - ax;
+  const ey = cy - ay;
+  const bl = dx * dx + dy * dy;
+  const cl = ex * ex + ey * ey;
+  const d = 0.5 / (dx * ey - dy * ex);
+  const x = ax + (ey * bl - dy * cl) * d;
+  const y = ay + (dx * cl - ex * bl) * d;
+  return { x, y };
+}
+function quicksort(ids, dists, left, right) {
+  if (right - left <= 20) {
+    for (let i = left + 1; i <= right; i++) {
+      const temp = ids[i];
+      const tempDist = dists[temp];
+      let j = i - 1;
+      while (j >= left && dists[ids[j]] > tempDist) ids[j + 1] = ids[j--];
+      ids[j + 1] = temp;
+    }
+  } else {
+    const median = left + right >> 1;
+    let i = left + 1;
+    let j = right;
+    swap(ids, median, i);
+    if (dists[ids[left]] > dists[ids[right]]) swap(ids, left, right);
+    if (dists[ids[i]] > dists[ids[right]]) swap(ids, i, right);
+    if (dists[ids[left]] > dists[ids[i]]) swap(ids, left, i);
+    const temp = ids[i];
+    const tempDist = dists[temp];
+    while (true) {
+      do
+        i++;
+      while (dists[ids[i]] < tempDist);
+      do
+        j--;
+      while (dists[ids[j]] > tempDist);
+      if (j < i) break;
+      swap(ids, i, j);
+    }
+    ids[left + 1] = ids[j];
+    ids[j] = temp;
+    if (right - i + 1 >= j - left) {
+      quicksort(ids, dists, i, right);
+      quicksort(ids, dists, left, j - 1);
+    } else {
+      quicksort(ids, dists, left, j - 1);
+      quicksort(ids, dists, i, right);
+    }
+  }
+}
+function swap(arr, i, j) {
+  const tmp = arr[i];
+  arr[i] = arr[j];
+  arr[j] = tmp;
+}
+function defaultGetX(p) {
+  return p[0];
+}
+function defaultGetY(p) {
+  return p[1];
+}
+var EPSILON, EDGE_STACK, Delaunator;
+var init_delaunator = __esm({
+  "../../node_modules/delaunator/index.js"() {
+    init_robust_predicates();
+    EPSILON = Math.pow(2, -52);
+    EDGE_STACK = new Uint32Array(512);
+    Delaunator = class _Delaunator {
+      /**
+       * Constructs a delaunay triangulation object given an array of points (`[x, y]` by default).
+       * `getX` and `getY` are optional functions of the form `(point) => value` for custom point formats.
+       *
+       * @template P
+       * @param {P[]} points
+       * @param {(p: P) => number} [getX]
+       * @param {(p: P) => number} [getY]
+       */
+      // @ts-expect-error TS2322
+      static from(points, getX = defaultGetX, getY = defaultGetY) {
+        const n = points.length;
+        const coords = new Float64Array(n * 2);
+        for (let i = 0; i < n; i++) {
+          const p = points[i];
+          coords[2 * i] = getX(p);
+          coords[2 * i + 1] = getY(p);
+        }
+        return new _Delaunator(coords);
+      }
+      /**
+       * Constructs a delaunay triangulation object given an array of point coordinates of the form:
+       * `[x0, y0, x1, y1, ...]` (use a typed array for best performance). Duplicate points are skipped.
+       *
+       * @param {T} coords
+       */
+      constructor(coords) {
+        const n = coords.length >> 1;
+        if (n > 0 && typeof coords[0] !== "number") throw new Error("Expected coords to contain numbers.");
+        this.coords = coords;
+        const maxTriangles = Math.max(2 * n - 5, 0);
+        this._triangles = new Uint32Array(maxTriangles * 3);
+        this._halfedges = new Int32Array(maxTriangles * 3);
+        this._hashSize = Math.ceil(Math.sqrt(n));
+        this._hullPrev = new Uint32Array(n);
+        this._hullNext = new Uint32Array(n);
+        this._hullTri = new Uint32Array(n);
+        this._hullHash = new Int32Array(this._hashSize);
+        this._ids = new Uint32Array(n);
+        this._dists = new Float64Array(n);
+        this.trianglesLen = 0;
+        this._cx = 0;
+        this._cy = 0;
+        this._hullStart = 0;
+        this.hull = this._triangles;
+        this.triangles = this._triangles;
+        this.halfedges = this._halfedges;
+        this.update();
+      }
+      /**
+       * Updates the triangulation if you modified `delaunay.coords` values in place, avoiding expensive memory allocations.
+       * Useful for iterative relaxation algorithms such as Lloyd's.
+       */
+      update() {
+        const { coords, _hullPrev: hullPrev, _hullNext: hullNext, _hullTri: hullTri, _hullHash: hullHash } = this;
+        const n = coords.length >> 1;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (let i = 0; i < n; i++) {
+          const x = coords[2 * i];
+          const y = coords[2 * i + 1];
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+          this._ids[i] = i;
+        }
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        let i0 = 0, i1 = 0, i2 = 0;
+        for (let i = 0, minDist = Infinity; i < n; i++) {
+          const d = dist(cx, cy, coords[2 * i], coords[2 * i + 1]);
+          if (d < minDist) {
+            i0 = i;
+            minDist = d;
+          }
+        }
+        const i0x = coords[2 * i0];
+        const i0y = coords[2 * i0 + 1];
+        for (let i = 0, minDist = Infinity; i < n; i++) {
+          if (i === i0) continue;
+          const d = dist(i0x, i0y, coords[2 * i], coords[2 * i + 1]);
+          if (d < minDist && d > 0) {
+            i1 = i;
+            minDist = d;
+          }
+        }
+        let i1x = coords[2 * i1];
+        let i1y = coords[2 * i1 + 1];
+        let minRadius = Infinity;
+        for (let i = 0; i < n; i++) {
+          if (i === i0 || i === i1) continue;
+          const r = circumradius(i0x, i0y, i1x, i1y, coords[2 * i], coords[2 * i + 1]);
+          if (r < minRadius) {
+            i2 = i;
+            minRadius = r;
+          }
+        }
+        let i2x = coords[2 * i2];
+        let i2y = coords[2 * i2 + 1];
+        if (minRadius === Infinity) {
+          for (let i = 0; i < n; i++) {
+            this._dists[i] = coords[2 * i] - coords[0] || coords[2 * i + 1] - coords[1];
+          }
+          quicksort(this._ids, this._dists, 0, n - 1);
+          const hull = new Uint32Array(n);
+          let j = 0;
+          for (let i = 0, d0 = -Infinity; i < n; i++) {
+            const id = this._ids[i];
+            const d = this._dists[id];
+            if (d > d0) {
+              hull[j++] = id;
+              d0 = d;
+            }
+          }
+          this.hull = hull.subarray(0, j);
+          this.triangles = new Uint32Array(0);
+          this.halfedges = new Int32Array(0);
+          return;
+        }
+        if (orient2d(i0x, i0y, i1x, i1y, i2x, i2y) < 0) {
+          const i = i1;
+          const x = i1x;
+          const y = i1y;
+          i1 = i2;
+          i1x = i2x;
+          i1y = i2y;
+          i2 = i;
+          i2x = x;
+          i2y = y;
+        }
+        const center = circumcenter(i0x, i0y, i1x, i1y, i2x, i2y);
+        this._cx = center.x;
+        this._cy = center.y;
+        for (let i = 0; i < n; i++) {
+          this._dists[i] = dist(coords[2 * i], coords[2 * i + 1], center.x, center.y);
+        }
+        quicksort(this._ids, this._dists, 0, n - 1);
+        this._hullStart = i0;
+        let hullSize = 3;
+        hullNext[i0] = hullPrev[i2] = i1;
+        hullNext[i1] = hullPrev[i0] = i2;
+        hullNext[i2] = hullPrev[i1] = i0;
+        hullTri[i0] = 0;
+        hullTri[i1] = 1;
+        hullTri[i2] = 2;
+        hullHash.fill(-1);
+        hullHash[this._hashKey(i0x, i0y)] = i0;
+        hullHash[this._hashKey(i1x, i1y)] = i1;
+        hullHash[this._hashKey(i2x, i2y)] = i2;
+        this.trianglesLen = 0;
+        this._addTriangle(i0, i1, i2, -1, -1, -1);
+        for (let k = 0, xp = 0, yp = 0; k < this._ids.length; k++) {
+          const i = this._ids[k];
+          const x = coords[2 * i];
+          const y = coords[2 * i + 1];
+          if (k > 0 && Math.abs(x - xp) <= EPSILON && Math.abs(y - yp) <= EPSILON) continue;
+          xp = x;
+          yp = y;
+          if (i === i0 || i === i1 || i === i2) continue;
+          let start = 0;
+          for (let j = 0, key = this._hashKey(x, y); j < this._hashSize; j++) {
+            start = hullHash[(key + j) % this._hashSize];
+            if (start !== -1 && start !== hullNext[start]) break;
+          }
+          start = hullPrev[start];
+          let e = start, q;
+          while (q = hullNext[e], orient2d(x, y, coords[2 * e], coords[2 * e + 1], coords[2 * q], coords[2 * q + 1]) >= 0) {
+            e = q;
+            if (e === start) {
+              e = -1;
+              break;
+            }
+          }
+          if (e === -1) continue;
+          let t = this._addTriangle(e, i, hullNext[e], -1, -1, hullTri[e]);
+          hullTri[i] = this._legalize(t + 2);
+          hullTri[e] = t;
+          hullSize++;
+          let n2 = hullNext[e];
+          while (q = hullNext[n2], orient2d(x, y, coords[2 * n2], coords[2 * n2 + 1], coords[2 * q], coords[2 * q + 1]) < 0) {
+            t = this._addTriangle(n2, i, q, hullTri[i], -1, hullTri[n2]);
+            hullTri[i] = this._legalize(t + 2);
+            hullNext[n2] = n2;
+            hullSize--;
+            n2 = q;
+          }
+          if (e === start) {
+            while (q = hullPrev[e], orient2d(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]) < 0) {
+              t = this._addTriangle(q, i, e, -1, hullTri[e], hullTri[q]);
+              this._legalize(t + 2);
+              hullTri[q] = t;
+              hullNext[e] = e;
+              hullSize--;
+              e = q;
+            }
+          }
+          this._hullStart = hullPrev[i] = e;
+          hullNext[e] = hullPrev[n2] = i;
+          hullNext[i] = n2;
+          hullHash[this._hashKey(x, y)] = i;
+          hullHash[this._hashKey(coords[2 * e], coords[2 * e + 1])] = e;
+        }
+        this.hull = new Uint32Array(hullSize);
+        for (let i = 0, e = this._hullStart; i < hullSize; i++) {
+          this.hull[i] = e;
+          e = hullNext[e];
+        }
+        this.triangles = this._triangles.subarray(0, this.trianglesLen);
+        this.halfedges = this._halfedges.subarray(0, this.trianglesLen);
+      }
+      /**
+       * Calculate an angle-based key for the edge hash used for advancing convex hull.
+       *
+       * @param {number} x
+       * @param {number} y
+       * @private
+       */
+      _hashKey(x, y) {
+        return Math.floor(pseudoAngle(x - this._cx, y - this._cy) * this._hashSize) % this._hashSize;
+      }
+      /**
+       * Flip an edge in a pair of triangles if it doesn't satisfy the Delaunay condition.
+       *
+       * @param {number} a
+       * @private
+       */
+      _legalize(a) {
+        const { _triangles: triangles, _halfedges: halfedges, coords } = this;
+        let i = 0;
+        let ar = 0;
+        while (true) {
+          const b = halfedges[a];
+          const a0 = a - a % 3;
+          ar = a0 + (a + 2) % 3;
+          if (b === -1) {
+            if (i === 0) break;
+            a = EDGE_STACK[--i];
+            continue;
+          }
+          const b0 = b - b % 3;
+          const al = a0 + (a + 1) % 3;
+          const bl = b0 + (b + 2) % 3;
+          const p0 = triangles[ar];
+          const pr = triangles[a];
+          const pl = triangles[al];
+          const p1 = triangles[bl];
+          const illegal = inCircle(
+            coords[2 * p0],
+            coords[2 * p0 + 1],
+            coords[2 * pr],
+            coords[2 * pr + 1],
+            coords[2 * pl],
+            coords[2 * pl + 1],
+            coords[2 * p1],
+            coords[2 * p1 + 1]
+          );
+          if (illegal) {
+            triangles[a] = p1;
+            triangles[b] = p0;
+            const hbl = halfedges[bl];
+            if (hbl === -1) {
+              let e = this._hullStart;
+              do {
+                if (this._hullTri[e] === bl) {
+                  this._hullTri[e] = a;
+                  break;
+                }
+                e = this._hullPrev[e];
+              } while (e !== this._hullStart);
+            }
+            this._link(a, hbl);
+            this._link(b, halfedges[ar]);
+            this._link(ar, bl);
+            const br = b0 + (b + 1) % 3;
+            if (i < EDGE_STACK.length) {
+              EDGE_STACK[i++] = br;
+            }
+          } else {
+            if (i === 0) break;
+            a = EDGE_STACK[--i];
+          }
+        }
+        return ar;
+      }
+      /**
+       * Link two half-edges to each other.
+       * @param {number} a
+       * @param {number} b
+       * @private
+       */
+      _link(a, b) {
+        this._halfedges[a] = b;
+        if (b !== -1) this._halfedges[b] = a;
+      }
+      /**
+       * Add a new triangle given vertex indices and adjacent half-edge ids.
+       *
+       * @param {number} i0
+       * @param {number} i1
+       * @param {number} i2
+       * @param {number} a
+       * @param {number} b
+       * @param {number} c
+       * @private
+       */
+      _addTriangle(i0, i1, i2, a, b, c) {
+        const t = this.trianglesLen;
+        this._triangles[t] = i0;
+        this._triangles[t + 1] = i1;
+        this._triangles[t + 2] = i2;
+        this._link(t, a);
+        this._link(t + 1, b);
+        this._link(t + 2, c);
+        this.trianglesLen += 3;
+        return t;
+      }
+    };
+  }
+});
+
+// ../../node_modules/d3-delaunay/src/path.js
+var epsilon2, Path;
+var init_path = __esm({
+  "../../node_modules/d3-delaunay/src/path.js"() {
+    epsilon2 = 1e-6;
+    Path = class {
+      constructor() {
+        this._x0 = this._y0 = // start of current subpath
+        this._x1 = this._y1 = null;
+        this._ = "";
+      }
+      moveTo(x, y) {
+        this._ += `M${this._x0 = this._x1 = +x},${this._y0 = this._y1 = +y}`;
+      }
+      closePath() {
+        if (this._x1 !== null) {
+          this._x1 = this._x0, this._y1 = this._y0;
+          this._ += "Z";
+        }
+      }
+      lineTo(x, y) {
+        this._ += `L${this._x1 = +x},${this._y1 = +y}`;
+      }
+      arc(x, y, r) {
+        x = +x, y = +y, r = +r;
+        const x0 = x + r;
+        const y0 = y;
+        if (r < 0) throw new Error("negative radius");
+        if (this._x1 === null) this._ += `M${x0},${y0}`;
+        else if (Math.abs(this._x1 - x0) > epsilon2 || Math.abs(this._y1 - y0) > epsilon2) this._ += "L" + x0 + "," + y0;
+        if (!r) return;
+        this._ += `A${r},${r},0,1,1,${x - r},${y}A${r},${r},0,1,1,${this._x1 = x0},${this._y1 = y0}`;
+      }
+      rect(x, y, w, h) {
+        this._ += `M${this._x0 = this._x1 = +x},${this._y0 = this._y1 = +y}h${+w}v${+h}h${-w}Z`;
+      }
+      value() {
+        return this._ || null;
+      }
+    };
+  }
+});
+
+// ../../node_modules/d3-delaunay/src/polygon.js
+var Polygon;
+var init_polygon = __esm({
+  "../../node_modules/d3-delaunay/src/polygon.js"() {
+    Polygon = class {
+      constructor() {
+        this._ = [];
+      }
+      moveTo(x, y) {
+        this._.push([x, y]);
+      }
+      closePath() {
+        this._.push(this._[0].slice());
+      }
+      lineTo(x, y) {
+        this._.push([x, y]);
+      }
+      value() {
+        return this._.length ? this._ : null;
+      }
+    };
+  }
+});
+
+// ../../node_modules/d3-delaunay/src/voronoi.js
+var Voronoi;
+var init_voronoi = __esm({
+  "../../node_modules/d3-delaunay/src/voronoi.js"() {
+    init_path();
+    init_polygon();
+    Voronoi = class {
+      constructor(delaunay, [xmin, ymin, xmax, ymax] = [0, 0, 960, 500]) {
+        if (!((xmax = +xmax) >= (xmin = +xmin)) || !((ymax = +ymax) >= (ymin = +ymin))) throw new Error("invalid bounds");
+        this.delaunay = delaunay;
+        this._circumcenters = new Float64Array(delaunay.points.length * 2);
+        this.vectors = new Float64Array(delaunay.points.length * 2);
+        this.xmax = xmax, this.xmin = xmin;
+        this.ymax = ymax, this.ymin = ymin;
+        this._init();
+      }
+      update() {
+        this.delaunay.update();
+        this._init();
+        return this;
+      }
+      _init() {
+        const { delaunay: { points, hull, triangles }, vectors } = this;
+        let bx, by;
+        const circumcenters = this.circumcenters = this._circumcenters.subarray(0, triangles.length / 3 * 2);
+        for (let i = 0, j = 0, n = triangles.length, x, y; i < n; i += 3, j += 2) {
+          const t1 = triangles[i] * 2;
+          const t2 = triangles[i + 1] * 2;
+          const t3 = triangles[i + 2] * 2;
+          const x12 = points[t1];
+          const y12 = points[t1 + 1];
+          const x2 = points[t2];
+          const y2 = points[t2 + 1];
+          const x3 = points[t3];
+          const y3 = points[t3 + 1];
+          const dx = x2 - x12;
+          const dy = y2 - y12;
+          const ex = x3 - x12;
+          const ey = y3 - y12;
+          const ab4 = (dx * ey - dy * ex) * 2;
+          if (Math.abs(ab4) < 1e-9) {
+            if (bx === void 0) {
+              bx = by = 0;
+              for (const i2 of hull) bx += points[i2 * 2], by += points[i2 * 2 + 1];
+              bx /= hull.length, by /= hull.length;
+            }
+            const a = 1e9 * Math.sign((bx - x12) * ey - (by - y12) * ex);
+            x = (x12 + x3) / 2 - a * ey;
+            y = (y12 + y3) / 2 + a * ex;
+          } else {
+            const d = 1 / ab4;
+            const bl = dx * dx + dy * dy;
+            const cl = ex * ex + ey * ey;
+            x = x12 + (ey * bl - dy * cl) * d;
+            y = y12 + (dx * cl - ex * bl) * d;
+          }
+          circumcenters[j] = x;
+          circumcenters[j + 1] = y;
+        }
+        let h = hull[hull.length - 1];
+        let p0, p1 = h * 4;
+        let x0, x1 = points[2 * h];
+        let y0, y1 = points[2 * h + 1];
+        vectors.fill(0);
+        for (let i = 0; i < hull.length; ++i) {
+          h = hull[i];
+          p0 = p1, x0 = x1, y0 = y1;
+          p1 = h * 4, x1 = points[2 * h], y1 = points[2 * h + 1];
+          vectors[p0 + 2] = vectors[p1] = y0 - y1;
+          vectors[p0 + 3] = vectors[p1 + 1] = x1 - x0;
+        }
+      }
+      render(context) {
+        const buffer = context == null ? context = new Path() : void 0;
+        const { delaunay: { halfedges, inedges, hull }, circumcenters, vectors } = this;
+        if (hull.length <= 1) return null;
+        for (let i = 0, n = halfedges.length; i < n; ++i) {
+          const j = halfedges[i];
+          if (j < i) continue;
+          const ti = Math.floor(i / 3) * 2;
+          const tj = Math.floor(j / 3) * 2;
+          const xi = circumcenters[ti];
+          const yi = circumcenters[ti + 1];
+          const xj = circumcenters[tj];
+          const yj = circumcenters[tj + 1];
+          this._renderSegment(xi, yi, xj, yj, context);
+        }
+        let h0, h1 = hull[hull.length - 1];
+        for (let i = 0; i < hull.length; ++i) {
+          h0 = h1, h1 = hull[i];
+          const t = Math.floor(inedges[h1] / 3) * 2;
+          const x = circumcenters[t];
+          const y = circumcenters[t + 1];
+          const v2 = h0 * 4;
+          const p = this._project(x, y, vectors[v2 + 2], vectors[v2 + 3]);
+          if (p) this._renderSegment(x, y, p[0], p[1], context);
+        }
+        return buffer && buffer.value();
+      }
+      renderBounds(context) {
+        const buffer = context == null ? context = new Path() : void 0;
+        context.rect(this.xmin, this.ymin, this.xmax - this.xmin, this.ymax - this.ymin);
+        return buffer && buffer.value();
+      }
+      renderCell(i, context) {
+        const buffer = context == null ? context = new Path() : void 0;
+        const points = this._clip(i);
+        if (points === null || !points.length) return;
+        context.moveTo(points[0], points[1]);
+        let n = points.length;
+        while (points[0] === points[n - 2] && points[1] === points[n - 1] && n > 1) n -= 2;
+        for (let i2 = 2; i2 < n; i2 += 2) {
+          if (points[i2] !== points[i2 - 2] || points[i2 + 1] !== points[i2 - 1])
+            context.lineTo(points[i2], points[i2 + 1]);
+        }
+        context.closePath();
+        return buffer && buffer.value();
+      }
+      *cellPolygons() {
+        const { delaunay: { points } } = this;
+        for (let i = 0, n = points.length / 2; i < n; ++i) {
+          const cell = this.cellPolygon(i);
+          if (cell) cell.index = i, yield cell;
+        }
+      }
+      cellPolygon(i) {
+        const polygon = new Polygon();
+        this.renderCell(i, polygon);
+        return polygon.value();
+      }
+      _renderSegment(x0, y0, x1, y1, context) {
+        let S;
+        const c0 = this._regioncode(x0, y0);
+        const c1 = this._regioncode(x1, y1);
+        if (c0 === 0 && c1 === 0) {
+          context.moveTo(x0, y0);
+          context.lineTo(x1, y1);
+        } else if (S = this._clipSegment(x0, y0, x1, y1, c0, c1)) {
+          context.moveTo(S[0], S[1]);
+          context.lineTo(S[2], S[3]);
+        }
+      }
+      contains(i, x, y) {
+        if ((x = +x, x !== x) || (y = +y, y !== y)) return false;
+        return this.delaunay._step(i, x, y) === i;
+      }
+      *neighbors(i) {
+        const ci = this._clip(i);
+        if (ci) for (const j of this.delaunay.neighbors(i)) {
+          const cj = this._clip(j);
+          if (cj) loop: for (let ai = 0, li = ci.length; ai < li; ai += 2) {
+            for (let aj = 0, lj = cj.length; aj < lj; aj += 2) {
+              if (ci[ai] === cj[aj] && ci[ai + 1] === cj[aj + 1] && ci[(ai + 2) % li] === cj[(aj + lj - 2) % lj] && ci[(ai + 3) % li] === cj[(aj + lj - 1) % lj]) {
+                yield j;
+                break loop;
+              }
+            }
+          }
+        }
+      }
+      _cell(i) {
+        const { circumcenters, delaunay: { inedges, halfedges, triangles } } = this;
+        const e0 = inedges[i];
+        if (e0 === -1) return null;
+        const points = [];
+        let e = e0;
+        do {
+          const t = Math.floor(e / 3);
+          points.push(circumcenters[t * 2], circumcenters[t * 2 + 1]);
+          e = e % 3 === 2 ? e - 2 : e + 1;
+          if (triangles[e] !== i) break;
+          e = halfedges[e];
+        } while (e !== e0 && e !== -1);
+        return points;
+      }
+      _clip(i) {
+        if (i === 0 && this.delaunay.hull.length === 1) {
+          return [this.xmax, this.ymin, this.xmax, this.ymax, this.xmin, this.ymax, this.xmin, this.ymin];
+        }
+        const points = this._cell(i);
+        if (points === null) return null;
+        const { vectors: V } = this;
+        const v2 = i * 4;
+        return this._simplify(V[v2] || V[v2 + 1] ? this._clipInfinite(i, points, V[v2], V[v2 + 1], V[v2 + 2], V[v2 + 3]) : this._clipFinite(i, points));
+      }
+      _clipFinite(i, points) {
+        const n = points.length;
+        let P = null;
+        let x0, y0, x1 = points[n - 2], y1 = points[n - 1];
+        let c0, c1 = this._regioncode(x1, y1);
+        let e0, e1 = 0;
+        for (let j = 0; j < n; j += 2) {
+          x0 = x1, y0 = y1, x1 = points[j], y1 = points[j + 1];
+          c0 = c1, c1 = this._regioncode(x1, y1);
+          if (c0 === 0 && c1 === 0) {
+            e0 = e1, e1 = 0;
+            if (P) P.push(x1, y1);
+            else P = [x1, y1];
+          } else {
+            let S, sx0, sy0, sx1, sy1;
+            if (c0 === 0) {
+              if ((S = this._clipSegment(x0, y0, x1, y1, c0, c1)) === null) continue;
+              [sx0, sy0, sx1, sy1] = S;
+            } else {
+              if ((S = this._clipSegment(x1, y1, x0, y0, c1, c0)) === null) continue;
+              [sx1, sy1, sx0, sy0] = S;
+              e0 = e1, e1 = this._edgecode(sx0, sy0);
+              if (e0 && e1) this._edge(i, e0, e1, P, P.length);
+              if (P) P.push(sx0, sy0);
+              else P = [sx0, sy0];
+            }
+            e0 = e1, e1 = this._edgecode(sx1, sy1);
+            if (e0 && e1) this._edge(i, e0, e1, P, P.length);
+            if (P) P.push(sx1, sy1);
+            else P = [sx1, sy1];
+          }
+        }
+        if (P) {
+          e0 = e1, e1 = this._edgecode(P[0], P[1]);
+          if (e0 && e1) this._edge(i, e0, e1, P, P.length);
+        } else if (this.contains(i, (this.xmin + this.xmax) / 2, (this.ymin + this.ymax) / 2)) {
+          return [this.xmax, this.ymin, this.xmax, this.ymax, this.xmin, this.ymax, this.xmin, this.ymin];
+        }
+        return P;
+      }
+      _clipSegment(x0, y0, x1, y1, c0, c1) {
+        const flip = c0 < c1;
+        if (flip) [x0, y0, x1, y1, c0, c1] = [x1, y1, x0, y0, c1, c0];
+        while (true) {
+          if (c0 === 0 && c1 === 0) return flip ? [x1, y1, x0, y0] : [x0, y0, x1, y1];
+          if (c0 & c1) return null;
+          let x, y, c = c0 || c1;
+          if (c & 8) x = x0 + (x1 - x0) * (this.ymax - y0) / (y1 - y0), y = this.ymax;
+          else if (c & 4) x = x0 + (x1 - x0) * (this.ymin - y0) / (y1 - y0), y = this.ymin;
+          else if (c & 2) y = y0 + (y1 - y0) * (this.xmax - x0) / (x1 - x0), x = this.xmax;
+          else y = y0 + (y1 - y0) * (this.xmin - x0) / (x1 - x0), x = this.xmin;
+          if (c0) x0 = x, y0 = y, c0 = this._regioncode(x0, y0);
+          else x1 = x, y1 = y, c1 = this._regioncode(x1, y1);
+        }
+      }
+      _clipInfinite(i, points, vx0, vy0, vxn, vyn) {
+        let P = Array.from(points), p;
+        if (p = this._project(P[0], P[1], vx0, vy0)) P.unshift(p[0], p[1]);
+        if (p = this._project(P[P.length - 2], P[P.length - 1], vxn, vyn)) P.push(p[0], p[1]);
+        if (P = this._clipFinite(i, P)) {
+          for (let j = 0, n = P.length, c0, c1 = this._edgecode(P[n - 2], P[n - 1]); j < n; j += 2) {
+            c0 = c1, c1 = this._edgecode(P[j], P[j + 1]);
+            if (c0 && c1) j = this._edge(i, c0, c1, P, j), n = P.length;
+          }
+        } else if (this.contains(i, (this.xmin + this.xmax) / 2, (this.ymin + this.ymax) / 2)) {
+          P = [this.xmin, this.ymin, this.xmax, this.ymin, this.xmax, this.ymax, this.xmin, this.ymax];
+        }
+        return P;
+      }
+      _edge(i, e0, e1, P, j) {
+        while (e0 !== e1) {
+          let x, y;
+          switch (e0) {
+            case 5:
+              e0 = 4;
+              continue;
+            case 4:
+              e0 = 6, x = this.xmax, y = this.ymin;
+              break;
+            case 6:
+              e0 = 2;
+              continue;
+            case 2:
+              e0 = 10, x = this.xmax, y = this.ymax;
+              break;
+            case 10:
+              e0 = 8;
+              continue;
+            case 8:
+              e0 = 9, x = this.xmin, y = this.ymax;
+              break;
+            case 9:
+              e0 = 1;
+              continue;
+            case 1:
+              e0 = 5, x = this.xmin, y = this.ymin;
+              break;
+          }
+          if ((P[j] !== x || P[j + 1] !== y) && this.contains(i, x, y)) {
+            P.splice(j, 0, x, y), j += 2;
+          }
+        }
+        return j;
+      }
+      _project(x0, y0, vx, vy) {
+        let t = Infinity, c, x, y;
+        if (vy < 0) {
+          if (y0 <= this.ymin) return null;
+          if ((c = (this.ymin - y0) / vy) < t) y = this.ymin, x = x0 + (t = c) * vx;
+        } else if (vy > 0) {
+          if (y0 >= this.ymax) return null;
+          if ((c = (this.ymax - y0) / vy) < t) y = this.ymax, x = x0 + (t = c) * vx;
+        }
+        if (vx > 0) {
+          if (x0 >= this.xmax) return null;
+          if ((c = (this.xmax - x0) / vx) < t) x = this.xmax, y = y0 + (t = c) * vy;
+        } else if (vx < 0) {
+          if (x0 <= this.xmin) return null;
+          if ((c = (this.xmin - x0) / vx) < t) x = this.xmin, y = y0 + (t = c) * vy;
+        }
+        return [x, y];
+      }
+      _edgecode(x, y) {
+        return (x === this.xmin ? 1 : x === this.xmax ? 2 : 0) | (y === this.ymin ? 4 : y === this.ymax ? 8 : 0);
+      }
+      _regioncode(x, y) {
+        return (x < this.xmin ? 1 : x > this.xmax ? 2 : 0) | (y < this.ymin ? 4 : y > this.ymax ? 8 : 0);
+      }
+      _simplify(P) {
+        if (P && P.length > 4) {
+          for (let i = 0; i < P.length; i += 2) {
+            const j = (i + 2) % P.length, k = (i + 4) % P.length;
+            if (P[i] === P[j] && P[j] === P[k] || P[i + 1] === P[j + 1] && P[j + 1] === P[k + 1]) {
+              P.splice(j, 2), i -= 2;
+            }
+          }
+          if (!P.length) P = null;
+        }
+        return P;
+      }
+    };
+  }
+});
+
+// ../../node_modules/d3-delaunay/src/delaunay.js
+function pointX(p) {
+  return p[0];
+}
+function pointY(p) {
+  return p[1];
+}
+function collinear(d) {
+  const { triangles, coords } = d;
+  for (let i = 0; i < triangles.length; i += 3) {
+    const a = 2 * triangles[i], b = 2 * triangles[i + 1], c = 2 * triangles[i + 2], cross = (coords[c] - coords[a]) * (coords[b + 1] - coords[a + 1]) - (coords[b] - coords[a]) * (coords[c + 1] - coords[a + 1]);
+    if (cross > 1e-10) return false;
+  }
+  return true;
+}
+function jitter(x, y, r) {
+  return [x + Math.sin(x + y) * r, y + Math.cos(x - y) * r];
+}
+function flatArray(points, fx, fy, that) {
+  const n = points.length;
+  const array = new Float64Array(n * 2);
+  for (let i = 0; i < n; ++i) {
+    const p = points[i];
+    array[i * 2] = fx.call(that, p, i, points);
+    array[i * 2 + 1] = fy.call(that, p, i, points);
+  }
+  return array;
+}
+function* flatIterable(points, fx, fy, that) {
+  let i = 0;
+  for (const p of points) {
+    yield fx.call(that, p, i, points);
+    yield fy.call(that, p, i, points);
+    ++i;
+  }
+}
+var tau, pow, Delaunay;
+var init_delaunay = __esm({
+  "../../node_modules/d3-delaunay/src/delaunay.js"() {
+    init_delaunator();
+    init_path();
+    init_polygon();
+    init_voronoi();
+    tau = 2 * Math.PI;
+    pow = Math.pow;
+    Delaunay = class _Delaunay {
+      static from(points, fx = pointX, fy = pointY, that) {
+        return new _Delaunay("length" in points ? flatArray(points, fx, fy, that) : Float64Array.from(flatIterable(points, fx, fy, that)));
+      }
+      constructor(points) {
+        this._delaunator = new Delaunator(points);
+        this.inedges = new Int32Array(points.length / 2);
+        this._hullIndex = new Int32Array(points.length / 2);
+        this.points = this._delaunator.coords;
+        this._init();
+      }
+      update() {
+        this._delaunator.update();
+        this._init();
+        return this;
+      }
+      _init() {
+        const d = this._delaunator, points = this.points;
+        if (d.hull && d.hull.length > 2 && collinear(d)) {
+          this.collinear = Int32Array.from({ length: points.length / 2 }, (_, i) => i).sort((i, j) => points[2 * i] - points[2 * j] || points[2 * i + 1] - points[2 * j + 1]);
+          const e = this.collinear[0], f = this.collinear[this.collinear.length - 1], bounds = [points[2 * e], points[2 * e + 1], points[2 * f], points[2 * f + 1]], r = 1e-8 * Math.hypot(bounds[3] - bounds[1], bounds[2] - bounds[0]);
+          for (let i = 0, n = points.length / 2; i < n; ++i) {
+            const p = jitter(points[2 * i], points[2 * i + 1], r);
+            points[2 * i] = p[0];
+            points[2 * i + 1] = p[1];
+          }
+          this._delaunator = new Delaunator(points);
+        } else {
+          delete this.collinear;
+        }
+        const halfedges = this.halfedges = this._delaunator.halfedges;
+        const hull = this.hull = this._delaunator.hull;
+        const triangles = this.triangles = this._delaunator.triangles;
+        const inedges = this.inedges.fill(-1);
+        const hullIndex = this._hullIndex.fill(-1);
+        for (let e = 0, n = halfedges.length; e < n; ++e) {
+          const p = triangles[e % 3 === 2 ? e - 2 : e + 1];
+          if (halfedges[e] === -1 || inedges[p] === -1) inedges[p] = e;
+        }
+        for (let i = 0, n = hull.length; i < n; ++i) {
+          hullIndex[hull[i]] = i;
+        }
+        if (hull.length <= 2 && hull.length > 0) {
+          this.triangles = new Int32Array(3).fill(-1);
+          this.halfedges = new Int32Array(3).fill(-1);
+          this.triangles[0] = hull[0];
+          inedges[hull[0]] = 1;
+          if (hull.length === 2) {
+            inedges[hull[1]] = 0;
+            this.triangles[1] = hull[1];
+            this.triangles[2] = hull[1];
+          }
+        }
+      }
+      voronoi(bounds) {
+        return new Voronoi(this, bounds);
+      }
+      *neighbors(i) {
+        const { inedges, hull, _hullIndex, halfedges, triangles, collinear: collinear2 } = this;
+        if (collinear2) {
+          const l = collinear2.indexOf(i);
+          if (l > 0) yield collinear2[l - 1];
+          if (l < collinear2.length - 1) yield collinear2[l + 1];
+          return;
+        }
+        const e0 = inedges[i];
+        if (e0 === -1) return;
+        let e = e0, p0 = -1;
+        do {
+          yield p0 = triangles[e];
+          e = e % 3 === 2 ? e - 2 : e + 1;
+          if (triangles[e] !== i) return;
+          e = halfedges[e];
+          if (e === -1) {
+            const p = hull[(_hullIndex[i] + 1) % hull.length];
+            if (p !== p0) yield p;
+            return;
+          }
+        } while (e !== e0);
+      }
+      find(x, y, i = 0) {
+        if ((x = +x, x !== x) || (y = +y, y !== y)) return -1;
+        const i0 = i;
+        let c;
+        while ((c = this._step(i, x, y)) >= 0 && c !== i && c !== i0) i = c;
+        return c;
+      }
+      _step(i, x, y) {
+        const { inedges, hull, _hullIndex, halfedges, triangles, points } = this;
+        if (inedges[i] === -1 || !points.length) return (i + 1) % (points.length >> 1);
+        let c = i;
+        let dc = pow(x - points[i * 2], 2) + pow(y - points[i * 2 + 1], 2);
+        const e0 = inedges[i];
+        let e = e0;
+        do {
+          let t = triangles[e];
+          const dt = pow(x - points[t * 2], 2) + pow(y - points[t * 2 + 1], 2);
+          if (dt < dc) dc = dt, c = t;
+          e = e % 3 === 2 ? e - 2 : e + 1;
+          if (triangles[e] !== i) break;
+          e = halfedges[e];
+          if (e === -1) {
+            e = hull[(_hullIndex[i] + 1) % hull.length];
+            if (e !== t) {
+              if (pow(x - points[e * 2], 2) + pow(y - points[e * 2 + 1], 2) < dc) return e;
+            }
+            break;
+          }
+        } while (e !== e0);
+        return c;
+      }
+      render(context) {
+        const buffer = context == null ? context = new Path() : void 0;
+        const { points, halfedges, triangles } = this;
+        for (let i = 0, n = halfedges.length; i < n; ++i) {
+          const j = halfedges[i];
+          if (j < i) continue;
+          const ti = triangles[i] * 2;
+          const tj = triangles[j] * 2;
+          context.moveTo(points[ti], points[ti + 1]);
+          context.lineTo(points[tj], points[tj + 1]);
+        }
+        this.renderHull(context);
+        return buffer && buffer.value();
+      }
+      renderPoints(context, r) {
+        if (r === void 0 && (!context || typeof context.moveTo !== "function")) r = context, context = null;
+        r = r == void 0 ? 2 : +r;
+        const buffer = context == null ? context = new Path() : void 0;
+        const { points } = this;
+        for (let i = 0, n = points.length; i < n; i += 2) {
+          const x = points[i], y = points[i + 1];
+          context.moveTo(x + r, y);
+          context.arc(x, y, r, 0, tau);
+        }
+        return buffer && buffer.value();
+      }
+      renderHull(context) {
+        const buffer = context == null ? context = new Path() : void 0;
+        const { hull, points } = this;
+        const h = hull[0] * 2, n = hull.length;
+        context.moveTo(points[h], points[h + 1]);
+        for (let i = 1; i < n; ++i) {
+          const h2 = 2 * hull[i];
+          context.lineTo(points[h2], points[h2 + 1]);
+        }
+        context.closePath();
+        return buffer && buffer.value();
+      }
+      hullPolygon() {
+        const polygon = new Polygon();
+        this.renderHull(polygon);
+        return polygon.value();
+      }
+      renderTriangle(i, context) {
+        const buffer = context == null ? context = new Path() : void 0;
+        const { points, triangles } = this;
+        const t0 = triangles[i *= 3] * 2;
+        const t1 = triangles[i + 1] * 2;
+        const t2 = triangles[i + 2] * 2;
+        context.moveTo(points[t0], points[t0 + 1]);
+        context.lineTo(points[t1], points[t1 + 1]);
+        context.lineTo(points[t2], points[t2 + 1]);
+        context.closePath();
+        return buffer && buffer.value();
+      }
+      *trianglePolygons() {
+        const { triangles } = this;
+        for (let i = 0, n = triangles.length / 3; i < n; ++i) {
+          yield this.trianglePolygon(i);
+        }
+      }
+      trianglePolygon(i) {
+        const polygon = new Polygon();
+        this.renderTriangle(i, polygon);
+        return polygon.value();
+      }
+    };
+  }
+});
+
+// ../../node_modules/d3-delaunay/src/index.js
+var init_src = __esm({
+  "../../node_modules/d3-delaunay/src/index.js"() {
+    init_delaunay();
+  }
+});
+
+// ../../packages/engine/src/map.ts
+function seededRng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = a + 1831565813 >>> 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function centroid(polygon) {
+  let x = 0, y = 0, area = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const [x0, y0] = polygon[i];
+    const [x1, y1] = polygon[(i + 1) % polygon.length];
+    const cross = x0 * y1 - x1 * y0;
+    area += cross;
+    x += (x0 + x1) * cross;
+    y += (y0 + y1) * cross;
+  }
+  area /= 2;
+  return [x / (6 * area), y / (6 * area)];
+}
+function generateMap(opts = {}) {
+  const { seed = 7, count = 24, width = 100, height = 160 } = opts;
+  if (count % 2 !== 0 || count > NAMES.length) throw new Error(`count must be even and <= ${NAMES.length}`);
+  const rng = seededRng(seed);
+  let points = Array.from({ length: count }, () => [rng() * width, rng() * height]);
+  let voronoi = Delaunay.from(points).voronoi([0, 0, width, height]);
+  for (let i = 0; i < 3; i++) {
+    points = points.map((_, j) => [...centroid(cellPolygon(voronoi, j))]);
+    voronoi = Delaunay.from(points).voronoi([0, 0, width, height]);
+  }
+  const delaunay = voronoi.delaunay;
+  const order = points.map((p, i) => ({ i, y: p[1] })).sort((a, b) => a.y - b.y).map((o) => o.i);
+  const rank = new Map(order.map((cell, r) => [cell, r]));
+  const half = count / 2;
+  const teamOf = (cell) => rank.get(cell) < half ? "black" : "white";
+  const idOf = (cell) => `t${String(rank.get(cell) + 1).padStart(2, "0")}`;
+  const territories = order.map((cell, r) => {
+    const polygon = cellPolygon(voronoi, cell);
+    return {
+      id: idOf(cell),
+      name: NAMES[r],
+      team: teamOf(cell),
+      isHq: r === 0 || r === count - 1,
+      polygon: polygon.map(([x, y]) => [round(x), round(y)]),
+      center: [round(points[cell][0]), round(points[cell][1])],
+      neighbors: [...delaunay.neighbors(cell)].filter((n) => sharesEdge(voronoi, cell, n)).map(idOf).sort()
+    };
+  });
+  return { id: `voronoi-${seed}-${count}`, seed, width, height, territories };
+}
+function cellPolygon(voronoi, i) {
+  const ring = voronoi.cellPolygon(i);
+  return ring.slice(0, -1).map(([x, y]) => [x, y]);
+}
+function sharesEdge(voronoi, a, b) {
+  const key = ([x, y]) => `${x.toFixed(6)},${y.toFixed(6)}`;
+  const pa = new Set(cellPolygon(voronoi, a).map(key));
+  return cellPolygon(voronoi, b).filter((p) => pa.has(key(p))).length >= 2;
+}
+var NAMES, round, DEFAULT_MAP;
+var init_map = __esm({
+  "../../packages/engine/src/map.ts"() {
+    "use strict";
+    init_src();
+    NAMES = [
+      "Horta",
+      "Vallcarca",
+      "Sarri\xE0",
+      "Pedralbes",
+      "Tibidabo",
+      "El Carmel",
+      "Gr\xE0cia",
+      "Sant Gervasi",
+      "Les Corts",
+      "Guinard\xF3",
+      "Sagrada Fam\xEDlia",
+      "Clot",
+      "Eixample",
+      "Sant Antoni",
+      "Sants",
+      "Poblenou",
+      "Sant Mart\xED",
+      "Fort Pienc",
+      "Raval",
+      "G\xF2tic",
+      "Born",
+      "Poble-sec",
+      "Montju\xEFc",
+      "Barceloneta"
+    ];
+    round = (n) => Math.round(n * 100) / 100;
+    DEFAULT_MAP = generateMap();
+  }
+});
+
+// ../../packages/engine/src/time.ts
+function gameDayOf(instant, timezone) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
+}
+var init_time = __esm({
+  "../../packages/engine/src/time.ts"() {
+    "use strict";
+  }
+});
+
+// ../../packages/engine/src/pieces.ts
+function depthsFromHq(map, team) {
+  const mine = map.territories.filter((t) => t.team === team);
+  const byId = new Map(mine.map((t) => [t.id, t]));
+  const hq = mine.find((t) => t.isHq);
+  const depth = /* @__PURE__ */ new Map();
+  if (!hq) return depth;
+  depth.set(hq.id, 0);
+  const queue = [hq.id];
+  while (queue.length) {
+    const id = queue.shift();
+    const d = depth.get(id);
+    for (const n of byId.get(id).neighbors) {
+      if (byId.has(n) && !depth.has(n)) {
+        depth.set(n, d + 1);
+        queue.push(n);
+      }
+    }
+  }
+  return depth;
+}
+function startingPositions(map, players) {
+  const positions = /* @__PURE__ */ new Map();
+  for (const team of ["white", "black"]) {
+    const depth = depthsFromHq(map, team);
+    const enemy = new Set(map.territories.filter((t) => t.team !== team).map((t) => t.id));
+    const front = map.territories.filter((t) => t.team === team && !t.isHq && t.neighbors.some((n) => enemy.has(n)));
+    const slots = (front.length ? front : map.territories.filter((t) => t.team === team && !t.isHq)).sort((a, b) => (depth.get(b.id) ?? 0) - (depth.get(a.id) ?? 0) || a.id.localeCompare(b.id));
+    const hq = map.territories.find((t) => t.team === team && t.isHq);
+    const members = players.filter((p) => p.team === team);
+    members.forEach((p, i) => {
+      const slot = slots[Math.floor(i * slots.length / Math.max(1, members.length))] ?? hq;
+      if (slot) positions.set(p.id, slot.id);
+    });
+  }
+  return positions;
+}
+var STARTING_GARRISON;
+var init_pieces = __esm({
+  "../../packages/engine/src/pieces.ts"() {
+    "use strict";
+    STARTING_GARRISON = 2;
+  }
+});
+
+// ../../packages/engine/src/war.ts
+function attackOdds(attackers, defenders) {
+  if (attackers <= 0) return 0;
+  return attackers / (attackers + Math.max(0, defenders));
+}
+function resolveBattle(attackers, defenders, roll) {
+  const p = attackOdds(attackers, defenders);
+  const won = roll < p;
+  return {
+    p,
+    won,
+    attackersLeft: won ? Math.max(1, attackers - Math.floor(defenders / 2)) : 0,
+    defendersLeft: won ? 0 : Math.max(1, defenders - Math.floor(attackers / 2))
+  };
+}
+function warState(map, players, earnedToday, battles, today) {
+  const owner = {};
+  const garrison = {};
+  for (const t of map.territories) {
+    owner[t.id] = t.team;
+    garrison[t.id] = STARTING_GARRISON;
+  }
+  const pieces = {};
+  for (const [playerId, territoryId] of startingPositions(map, players)) {
+    pieces[playerId] = { territoryId, available: earnedToday[playerId] ?? 0 };
+  }
+  const ordered = [...battles].sort((a, b) => a.at.localeCompare(b.at) || a.id - b.id);
+  for (const b of ordered) {
+    const piece = pieces[b.playerId];
+    if (piece && b.day === today) piece.available = Math.max(0, piece.available - b.attackers);
+    if (b.won) {
+      owner[b.to] = b.team;
+      garrison[b.to] = b.attackersLeft;
+      if (piece) piece.territoryId = b.to;
+    } else {
+      garrison[b.to] = b.defendersLeft;
+    }
+  }
+  return { owner, garrison, pieces };
+}
+function attackOptions(war, map, playerId) {
+  const piece = war.pieces[playerId];
+  if (!piece || piece.available <= 0) return [];
+  const here = map.territories.find((t) => t.id === piece.territoryId);
+  const myTeam = war.owner[piece.territoryId];
+  if (!here || !myTeam) return [];
+  return here.neighbors.filter((id) => war.owner[id] !== myTeam).map((id) => ({
+    to: id,
+    name: map.territories.find((t) => t.id === id)?.name ?? id,
+    defenders: war.garrison[id] ?? 0,
+    maxAttackers: piece.available
+  }));
+}
+function toBattleRecord(row) {
+  if (row.type !== "battle" || !row.payload || typeof row.payload !== "object") return null;
+  const p = row.payload;
+  const str = (v2) => typeof v2 === "string" ? v2 : null;
+  const num = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : null;
+  const playerId = str(p.playerId), from = str(p.from), to = str(p.to), day = str(p.day);
+  const attackers = num(p.attackers), defenders = num(p.defenders), pr = num(p.p), roll = num(p.roll);
+  const attackersLeft = num(p.attackersLeft), defendersLeft = num(p.defendersLeft);
+  if (!playerId || !from || !to || !day || p.team !== "white" && p.team !== "black" || typeof p.won !== "boolean") return null;
+  if (attackers === null || defenders === null || pr === null || roll === null || attackersLeft === null || defendersLeft === null) return null;
+  return { id: row.id, at: row.created_at, playerId, team: p.team, from, to, attackers, defenders, p: pr, roll, won: p.won, attackersLeft, defendersLeft, day };
+}
+var init_war = __esm({
+  "../../packages/engine/src/war.ts"() {
+    "use strict";
+    init_pieces();
+  }
+});
+
+// ../../packages/engine/src/index.ts
+var init_src2 = __esm({
+  "../../packages/engine/src/index.ts"() {
+    "use strict";
+    init_types();
+    init_api();
+    init_steps();
+    init_map();
+    init_time();
+    init_pieces();
+    init_war();
+  }
+});
+
 // ../../node_modules/@anthropic-ai/sdk/internal/tslib.mjs
 function __classPrivateFieldSet2(receiver, state, value, kind, f) {
   if (kind === "m")
@@ -1106,7 +2876,7 @@ async function readLimitedText(resp) {
   return new TextDecoder("utf-8").decode(merged);
 }
 var GRANT_TYPE_JWT_BEARER, GRANT_TYPE_REFRESH_TOKEN, TOKEN_ENDPOINT, OAUTH_API_BETA_HEADER, FEDERATION_BETA_HEADER, ADVISORY_REFRESH_THRESHOLD_IN_SECONDS, MANDATORY_REFRESH_THRESHOLD_IN_SECONDS, ADVISORY_REFRESH_BACKOFF_IN_SECONDS, MAX_TOKEN_RESPONSE_BYTES, MAX_ERROR_BODY_CHARS, SAFE_ERROR_KEYS, WorkloadIdentityError;
-var init_types = __esm({
+var init_types2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/lib/credentials/types.mjs"() {
     init_error();
     GRANT_TYPE_JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer";
@@ -1135,7 +2905,7 @@ var init_types = __esm({
 function nowAsSeconds() {
   return Math.floor(Date.now() / 1e3);
 }
-var init_time = __esm({
+var init_time2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/internal/utils/time.mjs"() {
   }
 });
@@ -1144,8 +2914,8 @@ var init_time = __esm({
 var TokenCache;
 var init_token_cache = __esm({
   "../../node_modules/@anthropic-ai/sdk/lib/credentials/token-cache.mjs"() {
-    init_types();
-    init_time();
+    init_types2();
+    init_time2();
     TokenCache = class {
       constructor(provider, onAdvisoryRefreshError) {
         this.cached = null;
@@ -1701,8 +3471,8 @@ function oidcFederationProvider(config) {
 }
 var init_oidc_federation = __esm({
   "../../node_modules/@anthropic-ai/sdk/lib/credentials/oidc-federation.mjs"() {
-    init_types();
-    init_time();
+    init_types2();
+    init_time2();
     init_version();
   }
 });
@@ -1783,8 +3553,8 @@ function userOAuthProvider(config) {
 var init_user_oauth = __esm({
   "../../node_modules/@anthropic-ai/sdk/lib/credentials/user-oauth.mjs"() {
     init_credentials();
-    init_types();
-    init_time();
+    init_types2();
+    init_time2();
     init_version();
   }
 });
@@ -1924,8 +3694,8 @@ var init_credential_chain = __esm({
   "../../node_modules/@anthropic-ai/sdk/lib/credentials/credential-chain.mjs"() {
     init_env();
     init_credentials();
-    init_types();
-    init_time();
+    init_types2();
+    init_time2();
     init_identity_token();
     init_oidc_federation();
     init_user_oauth();
@@ -3994,7 +5764,7 @@ function encodeURIPath(str) {
   return str.replace(/[^A-Za-z0-9\-._~!$&'()*+,;=:@]+/g, encodeURIComponent);
 }
 var EMPTY, createPathTagFunction, path2;
-var init_path = __esm({
+var init_path2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/internal/utils/path.mjs"() {
     init_error();
     EMPTY = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
@@ -4066,7 +5836,7 @@ var init_batches = __esm({
     init_headers();
     init_jsonl();
     init_error2();
-    init_path();
+    init_path2();
     Batches = class extends APIResource {
       /**
        * Send a batch of Message creation requests.
@@ -4412,7 +6182,7 @@ var init_deployment_runs = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     DeploymentRuns = class extends APIResource {
       /**
        * Get Deployment Run
@@ -4474,7 +6244,7 @@ var init_deployments = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Deployments = class extends APIResource {
       /**
        * Create Deployment
@@ -4695,7 +6465,7 @@ var init_dreams = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Dreams = class extends APIResource {
       /**
        * Start an asynchronous job that uses past sessions to produce a reorganized
@@ -4869,7 +6639,7 @@ var init_files = __esm({
     init_headers();
     init_stainless_helper_header();
     init_uploads();
-    init_path();
+    init_path2();
     Files = class extends APIResource {
       /**
        * List Files
@@ -5005,7 +6775,7 @@ var init_models = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Models = class extends APIResource {
       /**
        * Get a specific model.
@@ -5072,7 +6842,7 @@ var init_user_profiles = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     UserProfiles = class extends APIResource {
       /**
        * Create User Profile
@@ -6028,7 +7798,7 @@ var init_versions = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Versions = class extends APIResource {
       /**
        * List Agent Versions
@@ -6070,7 +7840,7 @@ var init_agents = __esm({
     init_versions();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Agents = /* @__PURE__ */ (() => {
       class Agents2 extends APIResource {
         constructor() {
@@ -9867,7 +11637,7 @@ var init_work = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     init_poller();
     init_worker();
     Work = /* @__PURE__ */ (() => {
@@ -10138,7 +11908,7 @@ var init_environments = __esm({
     init_work();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Environments = /* @__PURE__ */ (() => {
       class Environments2 extends APIResource {
         constructor() {
@@ -10307,7 +12077,7 @@ var init_memories2 = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Memories = class extends APIResource {
       /**
        * Create a memory
@@ -10453,7 +12223,7 @@ var init_memory_versions = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     MemoryVersions = class extends APIResource {
       /**
        * Retrieve a memory version
@@ -10548,7 +12318,7 @@ var init_memory_stores = __esm({
     init_memory_versions();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     MemoryStores = /* @__PURE__ */ (() => {
       class MemoryStores2 extends APIResource {
         constructor() {
@@ -10712,7 +12482,7 @@ var init_batches2 = __esm({
     init_headers();
     init_jsonl();
     init_error2();
-    init_path();
+    init_path2();
     Batches2 = class extends APIResource {
       /**
        * Send a batch of Message creation requests.
@@ -11747,7 +13517,7 @@ var init_api_keys = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/api-keys.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     APIKeys = class extends APIResource {
       /**
        * Get API Key
@@ -12320,7 +14090,7 @@ var init_external_keys = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/external-keys.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     ExternalKeys = class extends APIResource {
       /**
        * Create an external key config owned by the caller's organization.
@@ -12441,7 +14211,7 @@ var init_issuers = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Issuers = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -12611,7 +14381,7 @@ var init_workspaces = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Workspaces = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -12728,7 +14498,7 @@ var init_rules = __esm({
     init_workspaces();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Rules = /* @__PURE__ */ (() => {
       class Rules3 extends APIResource {
         constructor() {
@@ -12950,7 +14720,7 @@ var init_invites = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/invites.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Invites = class extends APIResource {
       /**
        * Invite a user to join the organization by email.
@@ -13029,7 +14799,7 @@ var init_plugin_marketplaces = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     PluginMarketplaces = class extends APIResource {
       /**
        * Retrieve a plugin marketplace by ID.
@@ -13290,7 +15060,7 @@ var init_users2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/users.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Users2 = class extends APIResource {
       /**
        * Retrieve a member of the organization by user ID.
@@ -13359,7 +15129,7 @@ var init_installation_settings = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     InstallationSettings = class extends APIResource {
       /**
        * List an organization-owned Plugin's installation settings, which say which
@@ -13507,7 +15277,7 @@ var init_shares = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Shares = class extends APIResource {
       /**
        * List the shares the owner of a member-owned Plugin has given — to every member
@@ -13563,7 +15333,7 @@ var init_versions2 = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     Versions2 = class extends APIResource {
       /**
        * Add a version to an organization-owned Plugin by uploading the new version's
@@ -13764,7 +15534,7 @@ var init_plugins2 = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     Plugins2 = /* @__PURE__ */ (() => {
       class Plugins3 extends APIResource {
         constructor() {
@@ -14015,7 +15785,7 @@ var init_members = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/rbac-groups/members.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Members = class extends APIResource {
       /**
        * List members of an RBAC Group.
@@ -14089,7 +15859,7 @@ var init_rbac_groups = __esm({
     init_members();
     init_members();
     init_pagination();
-    init_path();
+    init_path2();
     RBACGroups = /* @__PURE__ */ (() => {
       class RBACGroups2 extends APIResource {
         constructor() {
@@ -14200,7 +15970,7 @@ var init_permissions = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/rbac-roles/permissions.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Permissions = class extends APIResource {
       /**
        * List the permissions an RBAC Role grants.
@@ -14232,7 +16002,7 @@ var init_rbac_roles = __esm({
     init_permissions();
     init_permissions();
     init_pagination();
-    init_path();
+    init_path2();
     RBACRoles = /* @__PURE__ */ (() => {
       class RBACRoles2 extends APIResource {
         constructor() {
@@ -14288,7 +16058,7 @@ var init_workspaces2 = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Workspaces2 = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -14416,7 +16186,7 @@ var init_service_accounts = __esm({
     init_workspaces2();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     ServiceAccounts = /* @__PURE__ */ (() => {
       class ServiceAccounts5 extends APIResource {
         constructor() {
@@ -14620,7 +16390,7 @@ var init_increase_requests = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/spend-limits/increase-requests.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     IncreaseRequests = class extends APIResource {
       /**
        * Retrieve a spend limit increase request.
@@ -14707,7 +16477,7 @@ var init_spend_limits = __esm({
     init_increase_requests();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     SpendLimits = /* @__PURE__ */ (() => {
       class SpendLimits2 extends APIResource {
         constructor() {
@@ -14825,7 +16595,7 @@ var init_members2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/workspaces/members.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Members2 = class extends APIResource {
       /**
        * Get Workspace Member
@@ -14928,7 +16698,7 @@ var init_rate_limits2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/beta/organization/workspaces/rate-limits.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     RateLimits2 = class extends APIResource {
       /**
        * List a workspace's rate limits.
@@ -14966,7 +16736,7 @@ var init_service_accounts2 = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     ServiceAccounts2 = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -15162,7 +16932,7 @@ var init_workspaces3 = __esm({
     init_service_accounts2();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Workspaces3 = /* @__PURE__ */ (() => {
       class Workspaces7 extends APIResource {
         constructor() {
@@ -15360,7 +17130,7 @@ var init_events = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     init_SessionToolRunner();
     Events = /* @__PURE__ */ (() => {
       class Events3 extends APIResource {
@@ -15491,7 +17261,7 @@ var init_resources = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Resources = class extends APIResource {
       /**
        * Get Session Resource
@@ -15639,7 +17409,7 @@ var init_events2 = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Events2 = class extends APIResource {
       /**
        * List Session Thread Events
@@ -15709,7 +17479,7 @@ var init_threads = __esm({
     init_events2();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Threads = /* @__PURE__ */ (() => {
       class Threads2 extends APIResource {
         constructor() {
@@ -15813,7 +17583,7 @@ var init_sessions = __esm({
     init_threads();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Sessions = /* @__PURE__ */ (() => {
       class Sessions2 extends APIResource {
         constructor() {
@@ -15998,7 +17768,7 @@ var init_versions3 = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     Versions3 = class extends APIResource {
       /**
        * Create Skill Version
@@ -16143,7 +17913,7 @@ var init_skills3 = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     Skills2 = /* @__PURE__ */ (() => {
       class Skills4 extends APIResource {
         constructor() {
@@ -16259,7 +18029,7 @@ var init_certificates = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Certificates = class extends APIResource {
       /**
        * The Tunnels API is in research preview. It requires the
@@ -16403,7 +18173,7 @@ var init_tunnels = __esm({
     init_certificates();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Tunnels = /* @__PURE__ */ (() => {
       class Tunnels2 extends APIResource {
         constructor() {
@@ -16603,7 +18373,7 @@ var init_credentials2 = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Credentials = class extends APIResource {
       /**
        * Create Credential
@@ -16804,7 +18574,7 @@ var init_vaults = __esm({
     init_credentials2();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Vaults = /* @__PURE__ */ (() => {
       class Vaults2 extends APIResource {
         constructor() {
@@ -18183,7 +19953,7 @@ var init_files2 = __esm({
     init_headers();
     init_stainless_helper_header();
     init_uploads();
-    init_path();
+    init_path2();
     Files2 = class extends APIResource {
       /**
        * List Files
@@ -18303,7 +20073,7 @@ var init_models2 = __esm({
     init_resource();
     init_pagination();
     init_headers();
-    init_path();
+    init_path2();
     Models2 = class extends APIResource {
       /**
        * Get a specific model.
@@ -18367,7 +20137,7 @@ var init_api_keys2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/api-keys.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     APIKeys2 = class extends APIResource {
       /**
        * Get API Key
@@ -18472,7 +20242,7 @@ var init_external_keys2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/external-keys.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     ExternalKeys2 = class extends APIResource {
       /**
        * Create an external key config owned by the caller's organization.
@@ -18589,7 +20359,7 @@ var init_invites2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/invites.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Invites2 = class extends APIResource {
       /**
        * Invite a user to join the organization by email.
@@ -18698,7 +20468,7 @@ var init_users3 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/users.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Users3 = class extends APIResource {
       /**
        * Retrieve a member of the organization by user ID.
@@ -18763,7 +20533,7 @@ var init_issuers2 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/federation/issuers.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Issuers2 = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -18900,7 +20670,7 @@ var init_workspaces4 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/federation/rules/workspaces.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Workspaces4 = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -18997,7 +20767,7 @@ var init_rules2 = __esm({
     init_workspaces4();
     init_workspaces4();
     init_pagination();
-    init_path();
+    init_path2();
     Rules2 = /* @__PURE__ */ (() => {
       class Rules3 extends APIResource {
         constructor() {
@@ -19187,7 +20957,7 @@ var init_workspaces5 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/service-accounts/workspaces.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Workspaces5 = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -19295,7 +21065,7 @@ var init_service_accounts3 = __esm({
     init_workspaces5();
     init_workspaces5();
     init_pagination();
-    init_path();
+    init_path2();
     ServiceAccounts3 = /* @__PURE__ */ (() => {
       class ServiceAccounts5 extends APIResource {
         constructor() {
@@ -19437,7 +21207,7 @@ var init_members3 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/workspaces/members.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     Members3 = class extends APIResource {
       /**
        * Get Workspace Member
@@ -19537,7 +21307,7 @@ var init_rate_limits4 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/workspaces/rate-limits.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     RateLimits4 = class extends APIResource {
       /**
        * List a workspace's rate limits.
@@ -19574,7 +21344,7 @@ var init_service_accounts4 = __esm({
   "../../node_modules/@anthropic-ai/sdk/resources/organization/workspaces/service-accounts.mjs"() {
     init_resource();
     init_pagination();
-    init_path();
+    init_path2();
     ServiceAccounts4 = class extends APIResource {
       /**
        * **Requires an OAuth access token with the `org:admin` scope**, from
@@ -19737,7 +21507,7 @@ var init_workspaces6 = __esm({
     init_service_accounts4();
     init_service_accounts4();
     init_pagination();
-    init_path();
+    init_path2();
     Workspaces6 = /* @__PURE__ */ (() => {
       class Workspaces7 extends APIResource {
         constructor() {
@@ -19898,7 +21668,7 @@ var init_versions4 = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     Versions4 = class extends APIResource {
       /**
        * Create Skill Version
@@ -20002,7 +21772,7 @@ var init_skills4 = __esm({
     init_pagination();
     init_headers();
     init_uploads();
-    init_path();
+    init_path2();
     Skills3 = /* @__PURE__ */ (() => {
       class Skills4 extends APIResource {
         constructor() {
@@ -20124,7 +21894,7 @@ var init_client = __esm({
     init_query();
     init_version();
     init_error();
-    init_types();
+    init_types2();
     init_token_cache();
     init_credential_chain();
     init_middleware();
@@ -35398,6 +37168,7 @@ var init_repo = __esm({
   "server/repo.ts"() {
     "use strict";
     import_supabase_js = __toESM(require_main5(), 1);
+    init_src2();
     client = null;
     toPlayer = (row) => ({
       id: row.id,
@@ -35453,6 +37224,11 @@ var init_repo = __esm({
         return data.map(
           (r) => ({ playerId: r.player_id, day: r.day, steps: r.steps, source: r.source, reportedAt: r.updated_at })
         );
+      },
+      async listBattles(gameId) {
+        const { data, error } = await db().from("events").select("id, type, payload, created_at").eq("game_id", gameId).eq("type", "battle").order("created_at", { ascending: true });
+        if (error) throw error;
+        return data.map(toBattleRecord).filter((b) => b !== null);
       }
     };
   }
@@ -39502,1534 +41278,8 @@ var z = /* @__PURE__ */ Object.freeze({
   ZodError
 });
 
-// ../../packages/engine/src/steps.ts
-var MILESTONES = [
-  { steps: 5e3, soldiers: 4 },
-  { steps: 1e4, soldiers: 8 },
-  { steps: 12e3, soldiers: 10 }
-];
-var MAX_SOLDIERS_PER_PLAYER = 10;
-var MAX_PLAUSIBLE_DAILY_STEPS = 1e5;
-function stepsToSoldiers(steps) {
-  let soldiers = 0;
-  for (const m of MILESTONES) if (steps >= m.steps) soldiers = m.soldiers;
-  return soldiers;
-}
-function nextMilestone(steps) {
-  const current = stepsToSoldiers(steps);
-  const milestone = MILESTONES.find((m) => steps < m.steps);
-  if (!milestone) return null;
-  return { milestone, stepsToGo: milestone.steps - steps, gain: milestone.soldiers - current };
-}
-function teamBonus(memberSteps) {
-  if (memberSteps.length === 0) return 0;
-  const unit = Math.max(1, Math.floor(memberSteps.length / 2));
-  const lowest = Math.min(...memberSteps);
-  if (lowest >= 1e4) return 2 * unit;
-  if (lowest >= 5e3) return unit;
-  return 0;
-}
-function mergeSteps(stored, incoming) {
-  return Math.max(stored ?? 0, incoming);
-}
-function soldiersGained(before, after) {
-  return Math.max(0, stepsToSoldiers(after) - stepsToSoldiers(before));
-}
-function summarizePlayerDay(player, steps) {
-  return { player, steps, soldiers: stepsToSoldiers(steps), next: nextMilestone(steps) };
-}
-function summarizeTeamDay(team, players, reports, day) {
-  const members = players.filter((p) => p.team === team).map((p) => {
-    const steps = reports.filter((r) => r.playerId === p.id && r.day === day).reduce((max, r) => mergeSteps(max, r.steps), 0);
-    return summarizePlayerDay(p, steps);
-  });
-  const memberSteps = members.map((m) => m.steps);
-  const memberSoldiers = members.reduce((sum2, m) => sum2 + m.soldiers, 0);
-  const bonus = teamBonus(memberSteps);
-  const unit = members.length === 0 ? 0 : Math.max(1, Math.floor(members.length / 2));
-  return {
-    team,
-    members,
-    steps: memberSteps.reduce((a, b) => a + b, 0),
-    memberSoldiers,
-    bonus,
-    soldiers: memberSoldiers + bonus,
-    maxSoldiers: members.length * MAX_SOLDIERS_PER_PLAYER + 2 * unit
-  };
-}
-
-// ../../node_modules/robust-predicates/esm/util.js
-var epsilon = 11102230246251565e-32;
-var splitter = 134217729;
-var resulterrbound = (3 + 8 * epsilon) * epsilon;
-function sum(elen, e, flen, f, h) {
-  let Q, Qnew, hh, bvirt;
-  let enow = e[0];
-  let fnow = f[0];
-  let eindex = 0;
-  let findex = 0;
-  if (fnow > enow === fnow > -enow) {
-    Q = enow;
-    enow = e[++eindex];
-  } else {
-    Q = fnow;
-    fnow = f[++findex];
-  }
-  let hindex = 0;
-  if (eindex < elen && findex < flen) {
-    if (fnow > enow === fnow > -enow) {
-      Qnew = enow + Q;
-      hh = Q - (Qnew - enow);
-      enow = e[++eindex];
-    } else {
-      Qnew = fnow + Q;
-      hh = Q - (Qnew - fnow);
-      fnow = f[++findex];
-    }
-    Q = Qnew;
-    if (hh !== 0) {
-      h[hindex++] = hh;
-    }
-    while (eindex < elen && findex < flen) {
-      if (fnow > enow === fnow > -enow) {
-        Qnew = Q + enow;
-        bvirt = Qnew - Q;
-        hh = Q - (Qnew - bvirt) + (enow - bvirt);
-        enow = e[++eindex];
-      } else {
-        Qnew = Q + fnow;
-        bvirt = Qnew - Q;
-        hh = Q - (Qnew - bvirt) + (fnow - bvirt);
-        fnow = f[++findex];
-      }
-      Q = Qnew;
-      if (hh !== 0) {
-        h[hindex++] = hh;
-      }
-    }
-  }
-  while (eindex < elen) {
-    Qnew = Q + enow;
-    bvirt = Qnew - Q;
-    hh = Q - (Qnew - bvirt) + (enow - bvirt);
-    enow = e[++eindex];
-    Q = Qnew;
-    if (hh !== 0) {
-      h[hindex++] = hh;
-    }
-  }
-  while (findex < flen) {
-    Qnew = Q + fnow;
-    bvirt = Qnew - Q;
-    hh = Q - (Qnew - bvirt) + (fnow - bvirt);
-    fnow = f[++findex];
-    Q = Qnew;
-    if (hh !== 0) {
-      h[hindex++] = hh;
-    }
-  }
-  if (Q !== 0 || hindex === 0) {
-    h[hindex++] = Q;
-  }
-  return hindex;
-}
-function estimate(elen, e) {
-  let Q = e[0];
-  for (let i = 1; i < elen; i++) Q += e[i];
-  return Q;
-}
-function vec(n) {
-  return new Float64Array(n);
-}
-
-// ../../node_modules/robust-predicates/esm/orient2d.js
-var ccwerrboundA = (3 + 16 * epsilon) * epsilon;
-var ccwerrboundB = (2 + 12 * epsilon) * epsilon;
-var ccwerrboundC = (9 + 64 * epsilon) * epsilon * epsilon;
-var B = vec(4);
-var C1 = vec(8);
-var C2 = vec(12);
-var D = vec(16);
-var u = vec(4);
-function orient2dadapt(ax, ay, bx, by, cx, cy, detsum) {
-  let acxtail, acytail, bcxtail, bcytail;
-  let bvirt, c, ahi, alo, bhi, blo, _i, _j, _0, s1, s0, t1, t0, u32;
-  const acx = ax - cx;
-  const bcx = bx - cx;
-  const acy = ay - cy;
-  const bcy = by - cy;
-  s1 = acx * bcy;
-  c = splitter * acx;
-  ahi = c - (c - acx);
-  alo = acx - ahi;
-  c = splitter * bcy;
-  bhi = c - (c - bcy);
-  blo = bcy - bhi;
-  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
-  t1 = acy * bcx;
-  c = splitter * acy;
-  ahi = c - (c - acy);
-  alo = acy - ahi;
-  c = splitter * bcx;
-  bhi = c - (c - bcx);
-  blo = bcx - bhi;
-  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
-  _i = s0 - t0;
-  bvirt = s0 - _i;
-  B[0] = s0 - (_i + bvirt) + (bvirt - t0);
-  _j = s1 + _i;
-  bvirt = _j - s1;
-  _0 = s1 - (_j - bvirt) + (_i - bvirt);
-  _i = _0 - t1;
-  bvirt = _0 - _i;
-  B[1] = _0 - (_i + bvirt) + (bvirt - t1);
-  u32 = _j + _i;
-  bvirt = u32 - _j;
-  B[2] = _j - (u32 - bvirt) + (_i - bvirt);
-  B[3] = u32;
-  let det = estimate(4, B);
-  let errbound = ccwerrboundB * detsum;
-  if (det >= errbound || -det >= errbound) {
-    return det;
-  }
-  bvirt = ax - acx;
-  acxtail = ax - (acx + bvirt) + (bvirt - cx);
-  bvirt = bx - bcx;
-  bcxtail = bx - (bcx + bvirt) + (bvirt - cx);
-  bvirt = ay - acy;
-  acytail = ay - (acy + bvirt) + (bvirt - cy);
-  bvirt = by - bcy;
-  bcytail = by - (bcy + bvirt) + (bvirt - cy);
-  if (acxtail === 0 && acytail === 0 && bcxtail === 0 && bcytail === 0) {
-    return det;
-  }
-  errbound = ccwerrboundC * detsum + resulterrbound * Math.abs(det);
-  det += acx * bcytail + bcy * acxtail - (acy * bcxtail + bcx * acytail);
-  if (det >= errbound || -det >= errbound) return det;
-  s1 = acxtail * bcy;
-  c = splitter * acxtail;
-  ahi = c - (c - acxtail);
-  alo = acxtail - ahi;
-  c = splitter * bcy;
-  bhi = c - (c - bcy);
-  blo = bcy - bhi;
-  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
-  t1 = acytail * bcx;
-  c = splitter * acytail;
-  ahi = c - (c - acytail);
-  alo = acytail - ahi;
-  c = splitter * bcx;
-  bhi = c - (c - bcx);
-  blo = bcx - bhi;
-  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
-  _i = s0 - t0;
-  bvirt = s0 - _i;
-  u[0] = s0 - (_i + bvirt) + (bvirt - t0);
-  _j = s1 + _i;
-  bvirt = _j - s1;
-  _0 = s1 - (_j - bvirt) + (_i - bvirt);
-  _i = _0 - t1;
-  bvirt = _0 - _i;
-  u[1] = _0 - (_i + bvirt) + (bvirt - t1);
-  u32 = _j + _i;
-  bvirt = u32 - _j;
-  u[2] = _j - (u32 - bvirt) + (_i - bvirt);
-  u[3] = u32;
-  const C1len = sum(4, B, 4, u, C1);
-  s1 = acx * bcytail;
-  c = splitter * acx;
-  ahi = c - (c - acx);
-  alo = acx - ahi;
-  c = splitter * bcytail;
-  bhi = c - (c - bcytail);
-  blo = bcytail - bhi;
-  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
-  t1 = acy * bcxtail;
-  c = splitter * acy;
-  ahi = c - (c - acy);
-  alo = acy - ahi;
-  c = splitter * bcxtail;
-  bhi = c - (c - bcxtail);
-  blo = bcxtail - bhi;
-  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
-  _i = s0 - t0;
-  bvirt = s0 - _i;
-  u[0] = s0 - (_i + bvirt) + (bvirt - t0);
-  _j = s1 + _i;
-  bvirt = _j - s1;
-  _0 = s1 - (_j - bvirt) + (_i - bvirt);
-  _i = _0 - t1;
-  bvirt = _0 - _i;
-  u[1] = _0 - (_i + bvirt) + (bvirt - t1);
-  u32 = _j + _i;
-  bvirt = u32 - _j;
-  u[2] = _j - (u32 - bvirt) + (_i - bvirt);
-  u[3] = u32;
-  const C2len = sum(C1len, C1, 4, u, C2);
-  s1 = acxtail * bcytail;
-  c = splitter * acxtail;
-  ahi = c - (c - acxtail);
-  alo = acxtail - ahi;
-  c = splitter * bcytail;
-  bhi = c - (c - bcytail);
-  blo = bcytail - bhi;
-  s0 = alo * blo - (s1 - ahi * bhi - alo * bhi - ahi * blo);
-  t1 = acytail * bcxtail;
-  c = splitter * acytail;
-  ahi = c - (c - acytail);
-  alo = acytail - ahi;
-  c = splitter * bcxtail;
-  bhi = c - (c - bcxtail);
-  blo = bcxtail - bhi;
-  t0 = alo * blo - (t1 - ahi * bhi - alo * bhi - ahi * blo);
-  _i = s0 - t0;
-  bvirt = s0 - _i;
-  u[0] = s0 - (_i + bvirt) + (bvirt - t0);
-  _j = s1 + _i;
-  bvirt = _j - s1;
-  _0 = s1 - (_j - bvirt) + (_i - bvirt);
-  _i = _0 - t1;
-  bvirt = _0 - _i;
-  u[1] = _0 - (_i + bvirt) + (bvirt - t1);
-  u32 = _j + _i;
-  bvirt = u32 - _j;
-  u[2] = _j - (u32 - bvirt) + (_i - bvirt);
-  u[3] = u32;
-  const Dlen = sum(C2len, C2, 4, u, D);
-  return D[Dlen - 1];
-}
-function orient2d(ax, ay, bx, by, cx, cy) {
-  const detleft = (ay - cy) * (bx - cx);
-  const detright = (ax - cx) * (by - cy);
-  const det = detleft - detright;
-  const detsum = Math.abs(detleft + detright);
-  if (Math.abs(det) >= ccwerrboundA * detsum) return det;
-  return -orient2dadapt(ax, ay, bx, by, cx, cy, detsum);
-}
-
-// ../../node_modules/robust-predicates/esm/orient3d.js
-var o3derrboundA = (7 + 56 * epsilon) * epsilon;
-var o3derrboundB = (3 + 28 * epsilon) * epsilon;
-var o3derrboundC = (26 + 288 * epsilon) * epsilon * epsilon;
-var bc = vec(4);
-var ca = vec(4);
-var ab = vec(4);
-var at_b = vec(4);
-var at_c = vec(4);
-var bt_c = vec(4);
-var bt_a = vec(4);
-var ct_a = vec(4);
-var ct_b = vec(4);
-var bct = vec(8);
-var cat = vec(8);
-var abt = vec(8);
-var u2 = vec(4);
-var _8 = vec(8);
-var _8b = vec(8);
-var _16 = vec(16);
-var _12 = vec(12);
-var fin = vec(192);
-var fin2 = vec(192);
-
-// ../../node_modules/robust-predicates/esm/incircle.js
-var iccerrboundA = (10 + 96 * epsilon) * epsilon;
-var iccerrboundB = (4 + 48 * epsilon) * epsilon;
-var iccerrboundC = (44 + 576 * epsilon) * epsilon * epsilon;
-var bc2 = vec(4);
-var ca2 = vec(4);
-var ab2 = vec(4);
-var aa = vec(4);
-var bb = vec(4);
-var cc = vec(4);
-var u3 = vec(4);
-var v = vec(4);
-var axtbc = vec(8);
-var aytbc = vec(8);
-var bxtca = vec(8);
-var bytca = vec(8);
-var cxtab = vec(8);
-var cytab = vec(8);
-var abt2 = vec(8);
-var bct2 = vec(8);
-var cat2 = vec(8);
-var abtt = vec(4);
-var bctt = vec(4);
-var catt = vec(4);
-var _82 = vec(8);
-var _162 = vec(16);
-var _16b = vec(16);
-var _16c = vec(16);
-var _32 = vec(32);
-var _32b = vec(32);
-var _48 = vec(48);
-var _64 = vec(64);
-var fin3 = vec(1152);
-var fin22 = vec(1152);
-
-// ../../node_modules/robust-predicates/esm/insphere.js
-var isperrboundA = (16 + 224 * epsilon) * epsilon;
-var isperrboundB = (5 + 72 * epsilon) * epsilon;
-var isperrboundC = (71 + 1408 * epsilon) * epsilon * epsilon;
-var ab3 = vec(4);
-var bc3 = vec(4);
-var cd = vec(4);
-var de = vec(4);
-var ea = vec(4);
-var ac = vec(4);
-var bd = vec(4);
-var ce = vec(4);
-var da = vec(4);
-var eb = vec(4);
-var abc = vec(24);
-var bcd = vec(24);
-var cde = vec(24);
-var dea = vec(24);
-var eab = vec(24);
-var abd = vec(24);
-var bce = vec(24);
-var cda = vec(24);
-var deb = vec(24);
-var eac = vec(24);
-var adet = vec(1152);
-var bdet = vec(1152);
-var cdet = vec(1152);
-var ddet = vec(1152);
-var edet = vec(1152);
-var abdet = vec(2304);
-var cddet = vec(2304);
-var cdedet = vec(3456);
-var deter = vec(5760);
-var _83 = vec(8);
-var _8b2 = vec(8);
-var _8c = vec(8);
-var _163 = vec(16);
-var _24 = vec(24);
-var _482 = vec(48);
-var _48b = vec(48);
-var _96 = vec(96);
-var _192 = vec(192);
-var _384x = vec(384);
-var _384y = vec(384);
-var _384z = vec(384);
-var _768 = vec(768);
-var xdet = vec(96);
-var ydet = vec(96);
-var zdet = vec(96);
-var fin4 = vec(1152);
-
-// ../../node_modules/delaunator/index.js
-var EPSILON = Math.pow(2, -52);
-var EDGE_STACK = new Uint32Array(512);
-var Delaunator = class _Delaunator {
-  /**
-   * Constructs a delaunay triangulation object given an array of points (`[x, y]` by default).
-   * `getX` and `getY` are optional functions of the form `(point) => value` for custom point formats.
-   *
-   * @template P
-   * @param {P[]} points
-   * @param {(p: P) => number} [getX]
-   * @param {(p: P) => number} [getY]
-   */
-  // @ts-expect-error TS2322
-  static from(points, getX = defaultGetX, getY = defaultGetY) {
-    const n = points.length;
-    const coords = new Float64Array(n * 2);
-    for (let i = 0; i < n; i++) {
-      const p = points[i];
-      coords[2 * i] = getX(p);
-      coords[2 * i + 1] = getY(p);
-    }
-    return new _Delaunator(coords);
-  }
-  /**
-   * Constructs a delaunay triangulation object given an array of point coordinates of the form:
-   * `[x0, y0, x1, y1, ...]` (use a typed array for best performance). Duplicate points are skipped.
-   *
-   * @param {T} coords
-   */
-  constructor(coords) {
-    const n = coords.length >> 1;
-    if (n > 0 && typeof coords[0] !== "number") throw new Error("Expected coords to contain numbers.");
-    this.coords = coords;
-    const maxTriangles = Math.max(2 * n - 5, 0);
-    this._triangles = new Uint32Array(maxTriangles * 3);
-    this._halfedges = new Int32Array(maxTriangles * 3);
-    this._hashSize = Math.ceil(Math.sqrt(n));
-    this._hullPrev = new Uint32Array(n);
-    this._hullNext = new Uint32Array(n);
-    this._hullTri = new Uint32Array(n);
-    this._hullHash = new Int32Array(this._hashSize);
-    this._ids = new Uint32Array(n);
-    this._dists = new Float64Array(n);
-    this.trianglesLen = 0;
-    this._cx = 0;
-    this._cy = 0;
-    this._hullStart = 0;
-    this.hull = this._triangles;
-    this.triangles = this._triangles;
-    this.halfedges = this._halfedges;
-    this.update();
-  }
-  /**
-   * Updates the triangulation if you modified `delaunay.coords` values in place, avoiding expensive memory allocations.
-   * Useful for iterative relaxation algorithms such as Lloyd's.
-   */
-  update() {
-    const { coords, _hullPrev: hullPrev, _hullNext: hullNext, _hullTri: hullTri, _hullHash: hullHash } = this;
-    const n = coords.length >> 1;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (let i = 0; i < n; i++) {
-      const x = coords[2 * i];
-      const y = coords[2 * i + 1];
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-      this._ids[i] = i;
-    }
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    let i0 = 0, i1 = 0, i2 = 0;
-    for (let i = 0, minDist = Infinity; i < n; i++) {
-      const d = dist(cx, cy, coords[2 * i], coords[2 * i + 1]);
-      if (d < minDist) {
-        i0 = i;
-        minDist = d;
-      }
-    }
-    const i0x = coords[2 * i0];
-    const i0y = coords[2 * i0 + 1];
-    for (let i = 0, minDist = Infinity; i < n; i++) {
-      if (i === i0) continue;
-      const d = dist(i0x, i0y, coords[2 * i], coords[2 * i + 1]);
-      if (d < minDist && d > 0) {
-        i1 = i;
-        minDist = d;
-      }
-    }
-    let i1x = coords[2 * i1];
-    let i1y = coords[2 * i1 + 1];
-    let minRadius = Infinity;
-    for (let i = 0; i < n; i++) {
-      if (i === i0 || i === i1) continue;
-      const r = circumradius(i0x, i0y, i1x, i1y, coords[2 * i], coords[2 * i + 1]);
-      if (r < minRadius) {
-        i2 = i;
-        minRadius = r;
-      }
-    }
-    let i2x = coords[2 * i2];
-    let i2y = coords[2 * i2 + 1];
-    if (minRadius === Infinity) {
-      for (let i = 0; i < n; i++) {
-        this._dists[i] = coords[2 * i] - coords[0] || coords[2 * i + 1] - coords[1];
-      }
-      quicksort(this._ids, this._dists, 0, n - 1);
-      const hull = new Uint32Array(n);
-      let j = 0;
-      for (let i = 0, d0 = -Infinity; i < n; i++) {
-        const id = this._ids[i];
-        const d = this._dists[id];
-        if (d > d0) {
-          hull[j++] = id;
-          d0 = d;
-        }
-      }
-      this.hull = hull.subarray(0, j);
-      this.triangles = new Uint32Array(0);
-      this.halfedges = new Int32Array(0);
-      return;
-    }
-    if (orient2d(i0x, i0y, i1x, i1y, i2x, i2y) < 0) {
-      const i = i1;
-      const x = i1x;
-      const y = i1y;
-      i1 = i2;
-      i1x = i2x;
-      i1y = i2y;
-      i2 = i;
-      i2x = x;
-      i2y = y;
-    }
-    const center = circumcenter(i0x, i0y, i1x, i1y, i2x, i2y);
-    this._cx = center.x;
-    this._cy = center.y;
-    for (let i = 0; i < n; i++) {
-      this._dists[i] = dist(coords[2 * i], coords[2 * i + 1], center.x, center.y);
-    }
-    quicksort(this._ids, this._dists, 0, n - 1);
-    this._hullStart = i0;
-    let hullSize = 3;
-    hullNext[i0] = hullPrev[i2] = i1;
-    hullNext[i1] = hullPrev[i0] = i2;
-    hullNext[i2] = hullPrev[i1] = i0;
-    hullTri[i0] = 0;
-    hullTri[i1] = 1;
-    hullTri[i2] = 2;
-    hullHash.fill(-1);
-    hullHash[this._hashKey(i0x, i0y)] = i0;
-    hullHash[this._hashKey(i1x, i1y)] = i1;
-    hullHash[this._hashKey(i2x, i2y)] = i2;
-    this.trianglesLen = 0;
-    this._addTriangle(i0, i1, i2, -1, -1, -1);
-    for (let k = 0, xp = 0, yp = 0; k < this._ids.length; k++) {
-      const i = this._ids[k];
-      const x = coords[2 * i];
-      const y = coords[2 * i + 1];
-      if (k > 0 && Math.abs(x - xp) <= EPSILON && Math.abs(y - yp) <= EPSILON) continue;
-      xp = x;
-      yp = y;
-      if (i === i0 || i === i1 || i === i2) continue;
-      let start = 0;
-      for (let j = 0, key = this._hashKey(x, y); j < this._hashSize; j++) {
-        start = hullHash[(key + j) % this._hashSize];
-        if (start !== -1 && start !== hullNext[start]) break;
-      }
-      start = hullPrev[start];
-      let e = start, q;
-      while (q = hullNext[e], orient2d(x, y, coords[2 * e], coords[2 * e + 1], coords[2 * q], coords[2 * q + 1]) >= 0) {
-        e = q;
-        if (e === start) {
-          e = -1;
-          break;
-        }
-      }
-      if (e === -1) continue;
-      let t = this._addTriangle(e, i, hullNext[e], -1, -1, hullTri[e]);
-      hullTri[i] = this._legalize(t + 2);
-      hullTri[e] = t;
-      hullSize++;
-      let n2 = hullNext[e];
-      while (q = hullNext[n2], orient2d(x, y, coords[2 * n2], coords[2 * n2 + 1], coords[2 * q], coords[2 * q + 1]) < 0) {
-        t = this._addTriangle(n2, i, q, hullTri[i], -1, hullTri[n2]);
-        hullTri[i] = this._legalize(t + 2);
-        hullNext[n2] = n2;
-        hullSize--;
-        n2 = q;
-      }
-      if (e === start) {
-        while (q = hullPrev[e], orient2d(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]) < 0) {
-          t = this._addTriangle(q, i, e, -1, hullTri[e], hullTri[q]);
-          this._legalize(t + 2);
-          hullTri[q] = t;
-          hullNext[e] = e;
-          hullSize--;
-          e = q;
-        }
-      }
-      this._hullStart = hullPrev[i] = e;
-      hullNext[e] = hullPrev[n2] = i;
-      hullNext[i] = n2;
-      hullHash[this._hashKey(x, y)] = i;
-      hullHash[this._hashKey(coords[2 * e], coords[2 * e + 1])] = e;
-    }
-    this.hull = new Uint32Array(hullSize);
-    for (let i = 0, e = this._hullStart; i < hullSize; i++) {
-      this.hull[i] = e;
-      e = hullNext[e];
-    }
-    this.triangles = this._triangles.subarray(0, this.trianglesLen);
-    this.halfedges = this._halfedges.subarray(0, this.trianglesLen);
-  }
-  /**
-   * Calculate an angle-based key for the edge hash used for advancing convex hull.
-   *
-   * @param {number} x
-   * @param {number} y
-   * @private
-   */
-  _hashKey(x, y) {
-    return Math.floor(pseudoAngle(x - this._cx, y - this._cy) * this._hashSize) % this._hashSize;
-  }
-  /**
-   * Flip an edge in a pair of triangles if it doesn't satisfy the Delaunay condition.
-   *
-   * @param {number} a
-   * @private
-   */
-  _legalize(a) {
-    const { _triangles: triangles, _halfedges: halfedges, coords } = this;
-    let i = 0;
-    let ar = 0;
-    while (true) {
-      const b = halfedges[a];
-      const a0 = a - a % 3;
-      ar = a0 + (a + 2) % 3;
-      if (b === -1) {
-        if (i === 0) break;
-        a = EDGE_STACK[--i];
-        continue;
-      }
-      const b0 = b - b % 3;
-      const al = a0 + (a + 1) % 3;
-      const bl = b0 + (b + 2) % 3;
-      const p0 = triangles[ar];
-      const pr = triangles[a];
-      const pl = triangles[al];
-      const p1 = triangles[bl];
-      const illegal = inCircle(
-        coords[2 * p0],
-        coords[2 * p0 + 1],
-        coords[2 * pr],
-        coords[2 * pr + 1],
-        coords[2 * pl],
-        coords[2 * pl + 1],
-        coords[2 * p1],
-        coords[2 * p1 + 1]
-      );
-      if (illegal) {
-        triangles[a] = p1;
-        triangles[b] = p0;
-        const hbl = halfedges[bl];
-        if (hbl === -1) {
-          let e = this._hullStart;
-          do {
-            if (this._hullTri[e] === bl) {
-              this._hullTri[e] = a;
-              break;
-            }
-            e = this._hullPrev[e];
-          } while (e !== this._hullStart);
-        }
-        this._link(a, hbl);
-        this._link(b, halfedges[ar]);
-        this._link(ar, bl);
-        const br = b0 + (b + 1) % 3;
-        if (i < EDGE_STACK.length) {
-          EDGE_STACK[i++] = br;
-        }
-      } else {
-        if (i === 0) break;
-        a = EDGE_STACK[--i];
-      }
-    }
-    return ar;
-  }
-  /**
-   * Link two half-edges to each other.
-   * @param {number} a
-   * @param {number} b
-   * @private
-   */
-  _link(a, b) {
-    this._halfedges[a] = b;
-    if (b !== -1) this._halfedges[b] = a;
-  }
-  /**
-   * Add a new triangle given vertex indices and adjacent half-edge ids.
-   *
-   * @param {number} i0
-   * @param {number} i1
-   * @param {number} i2
-   * @param {number} a
-   * @param {number} b
-   * @param {number} c
-   * @private
-   */
-  _addTriangle(i0, i1, i2, a, b, c) {
-    const t = this.trianglesLen;
-    this._triangles[t] = i0;
-    this._triangles[t + 1] = i1;
-    this._triangles[t + 2] = i2;
-    this._link(t, a);
-    this._link(t + 1, b);
-    this._link(t + 2, c);
-    this.trianglesLen += 3;
-    return t;
-  }
-};
-function pseudoAngle(dx, dy) {
-  const p = dx / (Math.abs(dx) + Math.abs(dy));
-  return (dy > 0 ? 3 - p : 1 + p) / 4;
-}
-function dist(ax, ay, bx, by) {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-}
-function inCircle(ax, ay, bx, by, cx, cy, px, py) {
-  const dx = ax - px;
-  const dy = ay - py;
-  const ex = bx - px;
-  const ey = by - py;
-  const fx = cx - px;
-  const fy = cy - py;
-  const ap = dx * dx + dy * dy;
-  const bp = ex * ex + ey * ey;
-  const cp2 = fx * fx + fy * fy;
-  return dx * (ey * cp2 - bp * fy) - dy * (ex * cp2 - bp * fx) + ap * (ex * fy - ey * fx) < 0;
-}
-function circumradius(ax, ay, bx, by, cx, cy) {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const ex = cx - ax;
-  const ey = cy - ay;
-  const bl = dx * dx + dy * dy;
-  const cl = ex * ex + ey * ey;
-  const d = 0.5 / (dx * ey - dy * ex);
-  const x = (ey * bl - dy * cl) * d;
-  const y = (dx * cl - ex * bl) * d;
-  return x * x + y * y;
-}
-function circumcenter(ax, ay, bx, by, cx, cy) {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const ex = cx - ax;
-  const ey = cy - ay;
-  const bl = dx * dx + dy * dy;
-  const cl = ex * ex + ey * ey;
-  const d = 0.5 / (dx * ey - dy * ex);
-  const x = ax + (ey * bl - dy * cl) * d;
-  const y = ay + (dx * cl - ex * bl) * d;
-  return { x, y };
-}
-function quicksort(ids, dists, left, right) {
-  if (right - left <= 20) {
-    for (let i = left + 1; i <= right; i++) {
-      const temp = ids[i];
-      const tempDist = dists[temp];
-      let j = i - 1;
-      while (j >= left && dists[ids[j]] > tempDist) ids[j + 1] = ids[j--];
-      ids[j + 1] = temp;
-    }
-  } else {
-    const median = left + right >> 1;
-    let i = left + 1;
-    let j = right;
-    swap(ids, median, i);
-    if (dists[ids[left]] > dists[ids[right]]) swap(ids, left, right);
-    if (dists[ids[i]] > dists[ids[right]]) swap(ids, i, right);
-    if (dists[ids[left]] > dists[ids[i]]) swap(ids, left, i);
-    const temp = ids[i];
-    const tempDist = dists[temp];
-    while (true) {
-      do
-        i++;
-      while (dists[ids[i]] < tempDist);
-      do
-        j--;
-      while (dists[ids[j]] > tempDist);
-      if (j < i) break;
-      swap(ids, i, j);
-    }
-    ids[left + 1] = ids[j];
-    ids[j] = temp;
-    if (right - i + 1 >= j - left) {
-      quicksort(ids, dists, i, right);
-      quicksort(ids, dists, left, j - 1);
-    } else {
-      quicksort(ids, dists, left, j - 1);
-      quicksort(ids, dists, i, right);
-    }
-  }
-}
-function swap(arr, i, j) {
-  const tmp = arr[i];
-  arr[i] = arr[j];
-  arr[j] = tmp;
-}
-function defaultGetX(p) {
-  return p[0];
-}
-function defaultGetY(p) {
-  return p[1];
-}
-
-// ../../node_modules/d3-delaunay/src/path.js
-var epsilon2 = 1e-6;
-var Path = class {
-  constructor() {
-    this._x0 = this._y0 = // start of current subpath
-    this._x1 = this._y1 = null;
-    this._ = "";
-  }
-  moveTo(x, y) {
-    this._ += `M${this._x0 = this._x1 = +x},${this._y0 = this._y1 = +y}`;
-  }
-  closePath() {
-    if (this._x1 !== null) {
-      this._x1 = this._x0, this._y1 = this._y0;
-      this._ += "Z";
-    }
-  }
-  lineTo(x, y) {
-    this._ += `L${this._x1 = +x},${this._y1 = +y}`;
-  }
-  arc(x, y, r) {
-    x = +x, y = +y, r = +r;
-    const x0 = x + r;
-    const y0 = y;
-    if (r < 0) throw new Error("negative radius");
-    if (this._x1 === null) this._ += `M${x0},${y0}`;
-    else if (Math.abs(this._x1 - x0) > epsilon2 || Math.abs(this._y1 - y0) > epsilon2) this._ += "L" + x0 + "," + y0;
-    if (!r) return;
-    this._ += `A${r},${r},0,1,1,${x - r},${y}A${r},${r},0,1,1,${this._x1 = x0},${this._y1 = y0}`;
-  }
-  rect(x, y, w, h) {
-    this._ += `M${this._x0 = this._x1 = +x},${this._y0 = this._y1 = +y}h${+w}v${+h}h${-w}Z`;
-  }
-  value() {
-    return this._ || null;
-  }
-};
-
-// ../../node_modules/d3-delaunay/src/polygon.js
-var Polygon = class {
-  constructor() {
-    this._ = [];
-  }
-  moveTo(x, y) {
-    this._.push([x, y]);
-  }
-  closePath() {
-    this._.push(this._[0].slice());
-  }
-  lineTo(x, y) {
-    this._.push([x, y]);
-  }
-  value() {
-    return this._.length ? this._ : null;
-  }
-};
-
-// ../../node_modules/d3-delaunay/src/voronoi.js
-var Voronoi = class {
-  constructor(delaunay, [xmin, ymin, xmax, ymax] = [0, 0, 960, 500]) {
-    if (!((xmax = +xmax) >= (xmin = +xmin)) || !((ymax = +ymax) >= (ymin = +ymin))) throw new Error("invalid bounds");
-    this.delaunay = delaunay;
-    this._circumcenters = new Float64Array(delaunay.points.length * 2);
-    this.vectors = new Float64Array(delaunay.points.length * 2);
-    this.xmax = xmax, this.xmin = xmin;
-    this.ymax = ymax, this.ymin = ymin;
-    this._init();
-  }
-  update() {
-    this.delaunay.update();
-    this._init();
-    return this;
-  }
-  _init() {
-    const { delaunay: { points, hull, triangles }, vectors } = this;
-    let bx, by;
-    const circumcenters = this.circumcenters = this._circumcenters.subarray(0, triangles.length / 3 * 2);
-    for (let i = 0, j = 0, n = triangles.length, x, y; i < n; i += 3, j += 2) {
-      const t1 = triangles[i] * 2;
-      const t2 = triangles[i + 1] * 2;
-      const t3 = triangles[i + 2] * 2;
-      const x12 = points[t1];
-      const y12 = points[t1 + 1];
-      const x2 = points[t2];
-      const y2 = points[t2 + 1];
-      const x3 = points[t3];
-      const y3 = points[t3 + 1];
-      const dx = x2 - x12;
-      const dy = y2 - y12;
-      const ex = x3 - x12;
-      const ey = y3 - y12;
-      const ab4 = (dx * ey - dy * ex) * 2;
-      if (Math.abs(ab4) < 1e-9) {
-        if (bx === void 0) {
-          bx = by = 0;
-          for (const i2 of hull) bx += points[i2 * 2], by += points[i2 * 2 + 1];
-          bx /= hull.length, by /= hull.length;
-        }
-        const a = 1e9 * Math.sign((bx - x12) * ey - (by - y12) * ex);
-        x = (x12 + x3) / 2 - a * ey;
-        y = (y12 + y3) / 2 + a * ex;
-      } else {
-        const d = 1 / ab4;
-        const bl = dx * dx + dy * dy;
-        const cl = ex * ex + ey * ey;
-        x = x12 + (ey * bl - dy * cl) * d;
-        y = y12 + (dx * cl - ex * bl) * d;
-      }
-      circumcenters[j] = x;
-      circumcenters[j + 1] = y;
-    }
-    let h = hull[hull.length - 1];
-    let p0, p1 = h * 4;
-    let x0, x1 = points[2 * h];
-    let y0, y1 = points[2 * h + 1];
-    vectors.fill(0);
-    for (let i = 0; i < hull.length; ++i) {
-      h = hull[i];
-      p0 = p1, x0 = x1, y0 = y1;
-      p1 = h * 4, x1 = points[2 * h], y1 = points[2 * h + 1];
-      vectors[p0 + 2] = vectors[p1] = y0 - y1;
-      vectors[p0 + 3] = vectors[p1 + 1] = x1 - x0;
-    }
-  }
-  render(context) {
-    const buffer = context == null ? context = new Path() : void 0;
-    const { delaunay: { halfedges, inedges, hull }, circumcenters, vectors } = this;
-    if (hull.length <= 1) return null;
-    for (let i = 0, n = halfedges.length; i < n; ++i) {
-      const j = halfedges[i];
-      if (j < i) continue;
-      const ti = Math.floor(i / 3) * 2;
-      const tj = Math.floor(j / 3) * 2;
-      const xi = circumcenters[ti];
-      const yi = circumcenters[ti + 1];
-      const xj = circumcenters[tj];
-      const yj = circumcenters[tj + 1];
-      this._renderSegment(xi, yi, xj, yj, context);
-    }
-    let h0, h1 = hull[hull.length - 1];
-    for (let i = 0; i < hull.length; ++i) {
-      h0 = h1, h1 = hull[i];
-      const t = Math.floor(inedges[h1] / 3) * 2;
-      const x = circumcenters[t];
-      const y = circumcenters[t + 1];
-      const v2 = h0 * 4;
-      const p = this._project(x, y, vectors[v2 + 2], vectors[v2 + 3]);
-      if (p) this._renderSegment(x, y, p[0], p[1], context);
-    }
-    return buffer && buffer.value();
-  }
-  renderBounds(context) {
-    const buffer = context == null ? context = new Path() : void 0;
-    context.rect(this.xmin, this.ymin, this.xmax - this.xmin, this.ymax - this.ymin);
-    return buffer && buffer.value();
-  }
-  renderCell(i, context) {
-    const buffer = context == null ? context = new Path() : void 0;
-    const points = this._clip(i);
-    if (points === null || !points.length) return;
-    context.moveTo(points[0], points[1]);
-    let n = points.length;
-    while (points[0] === points[n - 2] && points[1] === points[n - 1] && n > 1) n -= 2;
-    for (let i2 = 2; i2 < n; i2 += 2) {
-      if (points[i2] !== points[i2 - 2] || points[i2 + 1] !== points[i2 - 1])
-        context.lineTo(points[i2], points[i2 + 1]);
-    }
-    context.closePath();
-    return buffer && buffer.value();
-  }
-  *cellPolygons() {
-    const { delaunay: { points } } = this;
-    for (let i = 0, n = points.length / 2; i < n; ++i) {
-      const cell = this.cellPolygon(i);
-      if (cell) cell.index = i, yield cell;
-    }
-  }
-  cellPolygon(i) {
-    const polygon = new Polygon();
-    this.renderCell(i, polygon);
-    return polygon.value();
-  }
-  _renderSegment(x0, y0, x1, y1, context) {
-    let S;
-    const c0 = this._regioncode(x0, y0);
-    const c1 = this._regioncode(x1, y1);
-    if (c0 === 0 && c1 === 0) {
-      context.moveTo(x0, y0);
-      context.lineTo(x1, y1);
-    } else if (S = this._clipSegment(x0, y0, x1, y1, c0, c1)) {
-      context.moveTo(S[0], S[1]);
-      context.lineTo(S[2], S[3]);
-    }
-  }
-  contains(i, x, y) {
-    if ((x = +x, x !== x) || (y = +y, y !== y)) return false;
-    return this.delaunay._step(i, x, y) === i;
-  }
-  *neighbors(i) {
-    const ci = this._clip(i);
-    if (ci) for (const j of this.delaunay.neighbors(i)) {
-      const cj = this._clip(j);
-      if (cj) loop: for (let ai = 0, li = ci.length; ai < li; ai += 2) {
-        for (let aj = 0, lj = cj.length; aj < lj; aj += 2) {
-          if (ci[ai] === cj[aj] && ci[ai + 1] === cj[aj + 1] && ci[(ai + 2) % li] === cj[(aj + lj - 2) % lj] && ci[(ai + 3) % li] === cj[(aj + lj - 1) % lj]) {
-            yield j;
-            break loop;
-          }
-        }
-      }
-    }
-  }
-  _cell(i) {
-    const { circumcenters, delaunay: { inedges, halfedges, triangles } } = this;
-    const e0 = inedges[i];
-    if (e0 === -1) return null;
-    const points = [];
-    let e = e0;
-    do {
-      const t = Math.floor(e / 3);
-      points.push(circumcenters[t * 2], circumcenters[t * 2 + 1]);
-      e = e % 3 === 2 ? e - 2 : e + 1;
-      if (triangles[e] !== i) break;
-      e = halfedges[e];
-    } while (e !== e0 && e !== -1);
-    return points;
-  }
-  _clip(i) {
-    if (i === 0 && this.delaunay.hull.length === 1) {
-      return [this.xmax, this.ymin, this.xmax, this.ymax, this.xmin, this.ymax, this.xmin, this.ymin];
-    }
-    const points = this._cell(i);
-    if (points === null) return null;
-    const { vectors: V } = this;
-    const v2 = i * 4;
-    return this._simplify(V[v2] || V[v2 + 1] ? this._clipInfinite(i, points, V[v2], V[v2 + 1], V[v2 + 2], V[v2 + 3]) : this._clipFinite(i, points));
-  }
-  _clipFinite(i, points) {
-    const n = points.length;
-    let P = null;
-    let x0, y0, x1 = points[n - 2], y1 = points[n - 1];
-    let c0, c1 = this._regioncode(x1, y1);
-    let e0, e1 = 0;
-    for (let j = 0; j < n; j += 2) {
-      x0 = x1, y0 = y1, x1 = points[j], y1 = points[j + 1];
-      c0 = c1, c1 = this._regioncode(x1, y1);
-      if (c0 === 0 && c1 === 0) {
-        e0 = e1, e1 = 0;
-        if (P) P.push(x1, y1);
-        else P = [x1, y1];
-      } else {
-        let S, sx0, sy0, sx1, sy1;
-        if (c0 === 0) {
-          if ((S = this._clipSegment(x0, y0, x1, y1, c0, c1)) === null) continue;
-          [sx0, sy0, sx1, sy1] = S;
-        } else {
-          if ((S = this._clipSegment(x1, y1, x0, y0, c1, c0)) === null) continue;
-          [sx1, sy1, sx0, sy0] = S;
-          e0 = e1, e1 = this._edgecode(sx0, sy0);
-          if (e0 && e1) this._edge(i, e0, e1, P, P.length);
-          if (P) P.push(sx0, sy0);
-          else P = [sx0, sy0];
-        }
-        e0 = e1, e1 = this._edgecode(sx1, sy1);
-        if (e0 && e1) this._edge(i, e0, e1, P, P.length);
-        if (P) P.push(sx1, sy1);
-        else P = [sx1, sy1];
-      }
-    }
-    if (P) {
-      e0 = e1, e1 = this._edgecode(P[0], P[1]);
-      if (e0 && e1) this._edge(i, e0, e1, P, P.length);
-    } else if (this.contains(i, (this.xmin + this.xmax) / 2, (this.ymin + this.ymax) / 2)) {
-      return [this.xmax, this.ymin, this.xmax, this.ymax, this.xmin, this.ymax, this.xmin, this.ymin];
-    }
-    return P;
-  }
-  _clipSegment(x0, y0, x1, y1, c0, c1) {
-    const flip = c0 < c1;
-    if (flip) [x0, y0, x1, y1, c0, c1] = [x1, y1, x0, y0, c1, c0];
-    while (true) {
-      if (c0 === 0 && c1 === 0) return flip ? [x1, y1, x0, y0] : [x0, y0, x1, y1];
-      if (c0 & c1) return null;
-      let x, y, c = c0 || c1;
-      if (c & 8) x = x0 + (x1 - x0) * (this.ymax - y0) / (y1 - y0), y = this.ymax;
-      else if (c & 4) x = x0 + (x1 - x0) * (this.ymin - y0) / (y1 - y0), y = this.ymin;
-      else if (c & 2) y = y0 + (y1 - y0) * (this.xmax - x0) / (x1 - x0), x = this.xmax;
-      else y = y0 + (y1 - y0) * (this.xmin - x0) / (x1 - x0), x = this.xmin;
-      if (c0) x0 = x, y0 = y, c0 = this._regioncode(x0, y0);
-      else x1 = x, y1 = y, c1 = this._regioncode(x1, y1);
-    }
-  }
-  _clipInfinite(i, points, vx0, vy0, vxn, vyn) {
-    let P = Array.from(points), p;
-    if (p = this._project(P[0], P[1], vx0, vy0)) P.unshift(p[0], p[1]);
-    if (p = this._project(P[P.length - 2], P[P.length - 1], vxn, vyn)) P.push(p[0], p[1]);
-    if (P = this._clipFinite(i, P)) {
-      for (let j = 0, n = P.length, c0, c1 = this._edgecode(P[n - 2], P[n - 1]); j < n; j += 2) {
-        c0 = c1, c1 = this._edgecode(P[j], P[j + 1]);
-        if (c0 && c1) j = this._edge(i, c0, c1, P, j), n = P.length;
-      }
-    } else if (this.contains(i, (this.xmin + this.xmax) / 2, (this.ymin + this.ymax) / 2)) {
-      P = [this.xmin, this.ymin, this.xmax, this.ymin, this.xmax, this.ymax, this.xmin, this.ymax];
-    }
-    return P;
-  }
-  _edge(i, e0, e1, P, j) {
-    while (e0 !== e1) {
-      let x, y;
-      switch (e0) {
-        case 5:
-          e0 = 4;
-          continue;
-        case 4:
-          e0 = 6, x = this.xmax, y = this.ymin;
-          break;
-        case 6:
-          e0 = 2;
-          continue;
-        case 2:
-          e0 = 10, x = this.xmax, y = this.ymax;
-          break;
-        case 10:
-          e0 = 8;
-          continue;
-        case 8:
-          e0 = 9, x = this.xmin, y = this.ymax;
-          break;
-        case 9:
-          e0 = 1;
-          continue;
-        case 1:
-          e0 = 5, x = this.xmin, y = this.ymin;
-          break;
-      }
-      if ((P[j] !== x || P[j + 1] !== y) && this.contains(i, x, y)) {
-        P.splice(j, 0, x, y), j += 2;
-      }
-    }
-    return j;
-  }
-  _project(x0, y0, vx, vy) {
-    let t = Infinity, c, x, y;
-    if (vy < 0) {
-      if (y0 <= this.ymin) return null;
-      if ((c = (this.ymin - y0) / vy) < t) y = this.ymin, x = x0 + (t = c) * vx;
-    } else if (vy > 0) {
-      if (y0 >= this.ymax) return null;
-      if ((c = (this.ymax - y0) / vy) < t) y = this.ymax, x = x0 + (t = c) * vx;
-    }
-    if (vx > 0) {
-      if (x0 >= this.xmax) return null;
-      if ((c = (this.xmax - x0) / vx) < t) x = this.xmax, y = y0 + (t = c) * vy;
-    } else if (vx < 0) {
-      if (x0 <= this.xmin) return null;
-      if ((c = (this.xmin - x0) / vx) < t) x = this.xmin, y = y0 + (t = c) * vy;
-    }
-    return [x, y];
-  }
-  _edgecode(x, y) {
-    return (x === this.xmin ? 1 : x === this.xmax ? 2 : 0) | (y === this.ymin ? 4 : y === this.ymax ? 8 : 0);
-  }
-  _regioncode(x, y) {
-    return (x < this.xmin ? 1 : x > this.xmax ? 2 : 0) | (y < this.ymin ? 4 : y > this.ymax ? 8 : 0);
-  }
-  _simplify(P) {
-    if (P && P.length > 4) {
-      for (let i = 0; i < P.length; i += 2) {
-        const j = (i + 2) % P.length, k = (i + 4) % P.length;
-        if (P[i] === P[j] && P[j] === P[k] || P[i + 1] === P[j + 1] && P[j + 1] === P[k + 1]) {
-          P.splice(j, 2), i -= 2;
-        }
-      }
-      if (!P.length) P = null;
-    }
-    return P;
-  }
-};
-
-// ../../node_modules/d3-delaunay/src/delaunay.js
-var tau = 2 * Math.PI;
-var pow = Math.pow;
-function pointX(p) {
-  return p[0];
-}
-function pointY(p) {
-  return p[1];
-}
-function collinear(d) {
-  const { triangles, coords } = d;
-  for (let i = 0; i < triangles.length; i += 3) {
-    const a = 2 * triangles[i], b = 2 * triangles[i + 1], c = 2 * triangles[i + 2], cross = (coords[c] - coords[a]) * (coords[b + 1] - coords[a + 1]) - (coords[b] - coords[a]) * (coords[c + 1] - coords[a + 1]);
-    if (cross > 1e-10) return false;
-  }
-  return true;
-}
-function jitter(x, y, r) {
-  return [x + Math.sin(x + y) * r, y + Math.cos(x - y) * r];
-}
-var Delaunay = class _Delaunay {
-  static from(points, fx = pointX, fy = pointY, that) {
-    return new _Delaunay("length" in points ? flatArray(points, fx, fy, that) : Float64Array.from(flatIterable(points, fx, fy, that)));
-  }
-  constructor(points) {
-    this._delaunator = new Delaunator(points);
-    this.inedges = new Int32Array(points.length / 2);
-    this._hullIndex = new Int32Array(points.length / 2);
-    this.points = this._delaunator.coords;
-    this._init();
-  }
-  update() {
-    this._delaunator.update();
-    this._init();
-    return this;
-  }
-  _init() {
-    const d = this._delaunator, points = this.points;
-    if (d.hull && d.hull.length > 2 && collinear(d)) {
-      this.collinear = Int32Array.from({ length: points.length / 2 }, (_, i) => i).sort((i, j) => points[2 * i] - points[2 * j] || points[2 * i + 1] - points[2 * j + 1]);
-      const e = this.collinear[0], f = this.collinear[this.collinear.length - 1], bounds = [points[2 * e], points[2 * e + 1], points[2 * f], points[2 * f + 1]], r = 1e-8 * Math.hypot(bounds[3] - bounds[1], bounds[2] - bounds[0]);
-      for (let i = 0, n = points.length / 2; i < n; ++i) {
-        const p = jitter(points[2 * i], points[2 * i + 1], r);
-        points[2 * i] = p[0];
-        points[2 * i + 1] = p[1];
-      }
-      this._delaunator = new Delaunator(points);
-    } else {
-      delete this.collinear;
-    }
-    const halfedges = this.halfedges = this._delaunator.halfedges;
-    const hull = this.hull = this._delaunator.hull;
-    const triangles = this.triangles = this._delaunator.triangles;
-    const inedges = this.inedges.fill(-1);
-    const hullIndex = this._hullIndex.fill(-1);
-    for (let e = 0, n = halfedges.length; e < n; ++e) {
-      const p = triangles[e % 3 === 2 ? e - 2 : e + 1];
-      if (halfedges[e] === -1 || inedges[p] === -1) inedges[p] = e;
-    }
-    for (let i = 0, n = hull.length; i < n; ++i) {
-      hullIndex[hull[i]] = i;
-    }
-    if (hull.length <= 2 && hull.length > 0) {
-      this.triangles = new Int32Array(3).fill(-1);
-      this.halfedges = new Int32Array(3).fill(-1);
-      this.triangles[0] = hull[0];
-      inedges[hull[0]] = 1;
-      if (hull.length === 2) {
-        inedges[hull[1]] = 0;
-        this.triangles[1] = hull[1];
-        this.triangles[2] = hull[1];
-      }
-    }
-  }
-  voronoi(bounds) {
-    return new Voronoi(this, bounds);
-  }
-  *neighbors(i) {
-    const { inedges, hull, _hullIndex, halfedges, triangles, collinear: collinear2 } = this;
-    if (collinear2) {
-      const l = collinear2.indexOf(i);
-      if (l > 0) yield collinear2[l - 1];
-      if (l < collinear2.length - 1) yield collinear2[l + 1];
-      return;
-    }
-    const e0 = inedges[i];
-    if (e0 === -1) return;
-    let e = e0, p0 = -1;
-    do {
-      yield p0 = triangles[e];
-      e = e % 3 === 2 ? e - 2 : e + 1;
-      if (triangles[e] !== i) return;
-      e = halfedges[e];
-      if (e === -1) {
-        const p = hull[(_hullIndex[i] + 1) % hull.length];
-        if (p !== p0) yield p;
-        return;
-      }
-    } while (e !== e0);
-  }
-  find(x, y, i = 0) {
-    if ((x = +x, x !== x) || (y = +y, y !== y)) return -1;
-    const i0 = i;
-    let c;
-    while ((c = this._step(i, x, y)) >= 0 && c !== i && c !== i0) i = c;
-    return c;
-  }
-  _step(i, x, y) {
-    const { inedges, hull, _hullIndex, halfedges, triangles, points } = this;
-    if (inedges[i] === -1 || !points.length) return (i + 1) % (points.length >> 1);
-    let c = i;
-    let dc = pow(x - points[i * 2], 2) + pow(y - points[i * 2 + 1], 2);
-    const e0 = inedges[i];
-    let e = e0;
-    do {
-      let t = triangles[e];
-      const dt = pow(x - points[t * 2], 2) + pow(y - points[t * 2 + 1], 2);
-      if (dt < dc) dc = dt, c = t;
-      e = e % 3 === 2 ? e - 2 : e + 1;
-      if (triangles[e] !== i) break;
-      e = halfedges[e];
-      if (e === -1) {
-        e = hull[(_hullIndex[i] + 1) % hull.length];
-        if (e !== t) {
-          if (pow(x - points[e * 2], 2) + pow(y - points[e * 2 + 1], 2) < dc) return e;
-        }
-        break;
-      }
-    } while (e !== e0);
-    return c;
-  }
-  render(context) {
-    const buffer = context == null ? context = new Path() : void 0;
-    const { points, halfedges, triangles } = this;
-    for (let i = 0, n = halfedges.length; i < n; ++i) {
-      const j = halfedges[i];
-      if (j < i) continue;
-      const ti = triangles[i] * 2;
-      const tj = triangles[j] * 2;
-      context.moveTo(points[ti], points[ti + 1]);
-      context.lineTo(points[tj], points[tj + 1]);
-    }
-    this.renderHull(context);
-    return buffer && buffer.value();
-  }
-  renderPoints(context, r) {
-    if (r === void 0 && (!context || typeof context.moveTo !== "function")) r = context, context = null;
-    r = r == void 0 ? 2 : +r;
-    const buffer = context == null ? context = new Path() : void 0;
-    const { points } = this;
-    for (let i = 0, n = points.length; i < n; i += 2) {
-      const x = points[i], y = points[i + 1];
-      context.moveTo(x + r, y);
-      context.arc(x, y, r, 0, tau);
-    }
-    return buffer && buffer.value();
-  }
-  renderHull(context) {
-    const buffer = context == null ? context = new Path() : void 0;
-    const { hull, points } = this;
-    const h = hull[0] * 2, n = hull.length;
-    context.moveTo(points[h], points[h + 1]);
-    for (let i = 1; i < n; ++i) {
-      const h2 = 2 * hull[i];
-      context.lineTo(points[h2], points[h2 + 1]);
-    }
-    context.closePath();
-    return buffer && buffer.value();
-  }
-  hullPolygon() {
-    const polygon = new Polygon();
-    this.renderHull(polygon);
-    return polygon.value();
-  }
-  renderTriangle(i, context) {
-    const buffer = context == null ? context = new Path() : void 0;
-    const { points, triangles } = this;
-    const t0 = triangles[i *= 3] * 2;
-    const t1 = triangles[i + 1] * 2;
-    const t2 = triangles[i + 2] * 2;
-    context.moveTo(points[t0], points[t0 + 1]);
-    context.lineTo(points[t1], points[t1 + 1]);
-    context.lineTo(points[t2], points[t2 + 1]);
-    context.closePath();
-    return buffer && buffer.value();
-  }
-  *trianglePolygons() {
-    const { triangles } = this;
-    for (let i = 0, n = triangles.length / 3; i < n; ++i) {
-      yield this.trianglePolygon(i);
-    }
-  }
-  trianglePolygon(i) {
-    const polygon = new Polygon();
-    this.renderTriangle(i, polygon);
-    return polygon.value();
-  }
-};
-function flatArray(points, fx, fy, that) {
-  const n = points.length;
-  const array = new Float64Array(n * 2);
-  for (let i = 0; i < n; ++i) {
-    const p = points[i];
-    array[i * 2] = fx.call(that, p, i, points);
-    array[i * 2 + 1] = fy.call(that, p, i, points);
-  }
-  return array;
-}
-function* flatIterable(points, fx, fy, that) {
-  let i = 0;
-  for (const p of points) {
-    yield fx.call(that, p, i, points);
-    yield fy.call(that, p, i, points);
-    ++i;
-  }
-}
-
-// ../../packages/engine/src/map.ts
-var NAMES = [
-  "Horta",
-  "Vallcarca",
-  "Sarri\xE0",
-  "Pedralbes",
-  "Tibidabo",
-  "El Carmel",
-  "Gr\xE0cia",
-  "Sant Gervasi",
-  "Les Corts",
-  "Guinard\xF3",
-  "Sagrada Fam\xEDlia",
-  "Clot",
-  "Eixample",
-  "Sant Antoni",
-  "Sants",
-  "Poblenou",
-  "Sant Mart\xED",
-  "Fort Pienc",
-  "Raval",
-  "G\xF2tic",
-  "Born",
-  "Poble-sec",
-  "Montju\xEFc",
-  "Barceloneta"
-];
-function seededRng(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = a + 1831565813 >>> 0;
-    let t = a;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-var round = (n) => Math.round(n * 100) / 100;
-function centroid(polygon) {
-  let x = 0, y = 0, area = 0;
-  for (let i = 0; i < polygon.length; i++) {
-    const [x0, y0] = polygon[i];
-    const [x1, y1] = polygon[(i + 1) % polygon.length];
-    const cross = x0 * y1 - x1 * y0;
-    area += cross;
-    x += (x0 + x1) * cross;
-    y += (y0 + y1) * cross;
-  }
-  area /= 2;
-  return [x / (6 * area), y / (6 * area)];
-}
-function generateMap(opts = {}) {
-  const { seed = 7, count = 24, width = 100, height = 160 } = opts;
-  if (count % 2 !== 0 || count > NAMES.length) throw new Error(`count must be even and <= ${NAMES.length}`);
-  const rng = seededRng(seed);
-  let points = Array.from({ length: count }, () => [rng() * width, rng() * height]);
-  let voronoi = Delaunay.from(points).voronoi([0, 0, width, height]);
-  for (let i = 0; i < 3; i++) {
-    points = points.map((_, j) => [...centroid(cellPolygon(voronoi, j))]);
-    voronoi = Delaunay.from(points).voronoi([0, 0, width, height]);
-  }
-  const delaunay = voronoi.delaunay;
-  const order = points.map((p, i) => ({ i, y: p[1] })).sort((a, b) => a.y - b.y).map((o) => o.i);
-  const rank = new Map(order.map((cell, r) => [cell, r]));
-  const half = count / 2;
-  const teamOf = (cell) => rank.get(cell) < half ? "black" : "white";
-  const idOf = (cell) => `t${String(rank.get(cell) + 1).padStart(2, "0")}`;
-  const territories = order.map((cell, r) => {
-    const polygon = cellPolygon(voronoi, cell);
-    return {
-      id: idOf(cell),
-      name: NAMES[r],
-      team: teamOf(cell),
-      isHq: r === 0 || r === count - 1,
-      polygon: polygon.map(([x, y]) => [round(x), round(y)]),
-      center: [round(points[cell][0]), round(points[cell][1])],
-      neighbors: [...delaunay.neighbors(cell)].filter((n) => sharesEdge(voronoi, cell, n)).map(idOf).sort()
-    };
-  });
-  return { id: `voronoi-${seed}-${count}`, seed, width, height, territories };
-}
-function cellPolygon(voronoi, i) {
-  const ring = voronoi.cellPolygon(i);
-  return ring.slice(0, -1).map(([x, y]) => [x, y]);
-}
-function sharesEdge(voronoi, a, b) {
-  const key = ([x, y]) => `${x.toFixed(6)},${y.toFixed(6)}`;
-  const pa = new Set(cellPolygon(voronoi, a).map(key));
-  return cellPolygon(voronoi, b).filter((p) => pa.has(key(p))).length >= 2;
-}
-var DEFAULT_MAP = generateMap();
-
-// ../../packages/engine/src/time.ts
-function gameDayOf(instant, timezone) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
-}
+// server/handlers.ts
+init_src2();
 
 // server/tokens.ts
 import { createHash, randomInt } from "node:crypto";
@@ -41114,8 +41364,67 @@ async function submitSteps(repo, input, now) {
   return { ok: true, data: { day, steps: after, soldiers: stepsToSoldiers(after), gained } };
 }
 
+// server/war.ts
+import { randomInt as randomInt2 } from "node:crypto";
+init_src2();
+async function loadWarContext(repo, game, now) {
+  const today = gameDayOf(now, game.settings.timezone);
+  const [players, reports, battles] = await Promise.all([
+    repo.listPlayers(game.id),
+    repo.listStepReports(game.id, today),
+    repo.listBattles(game.id)
+  ]);
+  const teams = {
+    white: summarizeTeamDay("white", players, reports, today),
+    black: summarizeTeamDay("black", players, reports, today)
+  };
+  const earned = Object.fromEntries([...teams.white.members, ...teams.black.members].map((m) => [m.player.id, m.soldiers]));
+  return { map: DEFAULT_MAP, game, players, teams, war: warState(DEFAULT_MAP, players, earned, battles, today), today };
+}
+var attackSchema = z.object({
+  token: z.string().trim().min(8).max(64),
+  to: z.string().trim().min(1).max(20),
+  soldiers: z.coerce.number().int().min(1).max(1e3)
+});
+var serverRoll = () => randomInt2(0, 1e6) / 1e6;
+async function attack(repo, input, now, roll = serverRoll) {
+  const parsed = attackSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const { token, to, soldiers } = parsed.data;
+  const found = await repo.findByTokenHash(hashToken(token));
+  if (!found) return { ok: false, error: "Unknown code" };
+  const { player, game } = found;
+  const ctx = await loadWarContext(repo, game, now);
+  const piece = ctx.war.pieces[player.id];
+  if (!piece) return { ok: false, error: "You are not on the map yet" };
+  const option = attackOptions(ctx.war, ctx.map, player.id).find((o) => o.to === to);
+  if (!option) {
+    if (piece.available <= 0) return { ok: false, error: "No soldiers left today: walk to earn more" };
+    return { ok: false, error: "You can only attack enemy territory next to you" };
+  }
+  if (soldiers > option.maxAttackers) return { ok: false, error: `You only have ${option.maxAttackers} soldiers available` };
+  const r = roll();
+  const result = resolveBattle(soldiers, option.defenders, r);
+  await repo.insertEvent(game.id, "battle", {
+    playerId: player.id,
+    team: player.team,
+    from: piece.territoryId,
+    to,
+    attackers: soldiers,
+    defenders: option.defenders,
+    p: result.p,
+    roll: r,
+    won: result.won,
+    attackersLeft: result.attackersLeft,
+    defendersLeft: result.defendersLeft,
+    day: ctx.today
+  });
+  return { ok: true, data: { won: result.won, p: result.p, roll: r, to, attackersLeft: result.attackersLeft, defendersLeft: result.defendersLeft } };
+}
+
 // server/nudge.ts
 init_sdk();
+init_src2();
 var MAX_NUDGES = 3;
 function nudgeTargets(team, myPlayerId) {
   const memberSteps = team.members.map((m) => m.steps);
@@ -41214,7 +41523,8 @@ var ROUTES = {
   "POST /api/join": join,
   "POST /api/me": me,
   "POST /api/steps": (repo, body) => submitSteps(repo, body, /* @__PURE__ */ new Date()),
-  "POST /api/nudge": (repo, body) => nudge(repo, body, /* @__PURE__ */ new Date())
+  "POST /api/nudge": (repo, body) => nudge(repo, body, /* @__PURE__ */ new Date()),
+  "POST /api/attack": (repo, body) => attack(repo, body, /* @__PURE__ */ new Date())
 };
 async function health() {
   const url = process.env.SUPABASE_URL?.trim() ?? "";
