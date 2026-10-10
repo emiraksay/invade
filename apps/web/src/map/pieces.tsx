@@ -1,8 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PieceView } from './model';
 
-/** Map units: the garrison badge sits up-left of the territory centre so it never covers a piece. */
-export const GARRISON_OFFSET: readonly [number, number] = [-6, -5];
+/**
+ * Each player's ring colour (cousin's Sctech Place frame: red, blue, green rings around the avatars).
+ * Display only: handed out in the order of view.pieces, so up to 8 players never share a colour.
+ */
+export const PLAYER_COLORS = ['#ff3b30', '#2f6bff', '#2ee86a', '#ffb000', '#b14cff', '#00d4e0', '#ff4fa3', '#9be02e'] as const;
+
+export function playerColors(pieces: readonly PieceView[]): Map<string, string> {
+  return new Map(pieces.map((p, i) => [p.playerId, PLAYER_COLORS[i % PLAYER_COLORS.length]!]));
+}
+
+/** Map units: the garrison badge moves up-left of the territory centre when a piece (or the HQ crown) is there. */
+export const GARRISON_OFFSET: readonly [number, number] = [-8, -6];
+
+/** Where to draw a territory's garrison number: its centre, or off to the side if something else is drawn there. */
+export function garrisonAt(center: readonly [number, number], occupied: boolean): [number, number] {
+  return occupied ? [center[0] + GARRISON_OFFSET[0], center[1] + GARRISON_OFFSET[1]] : [center[0], center[1]];
+}
 
 /** Counts up each time `value` rises, so a badge can replay its pop (stays 0 until the first rise). */
 export function usePop(value: number): number {
@@ -17,13 +32,13 @@ export function usePop(value: number): number {
 
 /**
  * A player on the map (cousin's Sctech Place/Attack frames): a disc in the team colour with the
- * player's initial, a white soldier badge bottom-right (Figma NumberCircle), the name underneath.
- * My own piece gets a thicker glowing ring. The badge pops when the soldiers go up.
+ * player's initial and a ring in the player's own colour, a white soldier badge bottom-right (Figma NumberCircle), the name underneath.
+ * My own piece gets a thicker ring glowing in that colour. The badge pops when the soldiers go up.
  */
-export function PieceToken({ piece }: { piece: PieceView }) {
+export function PieceToken({ piece, color }: { piece: PieceView; color: string }) {
   const pop = usePop(piece.soldiers);
   return (
-    <div className={`piece piece-${piece.team}${piece.isMe ? ' piece-me' : ''}`} aria-label={`${piece.name}, ${piece.soldiers} soldiers${piece.isMe ? ' (you)' : ''}`}>
+    <div className={`piece piece-${piece.team}${piece.isMe ? ' piece-me' : ''}`} style={{ '--ring': color } as CSSProperties} aria-label={`${piece.name}, ${piece.soldiers} soldiers${piece.isMe ? ' (you)' : ''}`}>
       <div className="piece-disc">
         {piece.name.trim().charAt(0).toUpperCase() || '?'}
         <span key={pop} className={`piece-badge${pop ? ' piece-pop' : ''}`}>{piece.soldiers}</span>
