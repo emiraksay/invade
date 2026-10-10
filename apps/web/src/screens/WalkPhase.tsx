@@ -116,7 +116,6 @@ export function WalkView({ session, teams, settings, live, players = [], events 
         <>
           <Countdown timezone={settings.timezone} />
           <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} seasonStart={settings.seasonStart} />
-          <DecreeBanner code={session.game.code} />
           <StatsBar stats={stats} />
           <div className="walk-map">
             <Battlefield
@@ -172,6 +171,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
               <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Today</h2>
               <button type="button" className="sheet-close" onClick={() => setListOpen(false)} aria-label="Close list">✕</button>
             </header>
+            <DecreeBanner code={session.game.code} />
             <GeneralOrders token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}:${battles.length}`} preload={generalPreload} />
             <MilestoneTrack me={me} />
             <TonightCard teams={teams} settings={settings} myTeam={mine} />
