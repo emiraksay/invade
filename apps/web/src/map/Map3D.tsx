@@ -117,7 +117,6 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
     return g;
   }, [shape, step]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  const glints = useRef<Line2>(null);
   const reflection = useMemo(
     () => reflectionGeometry(poly, t.center, coastEdges, step - SLAB + 0.5),
     [poly, t.center, coastEdges, step],
@@ -146,9 +145,8 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
       const breath = reducedMotion ? 0 : 0.5 + 0.5 * Math.sin((clock.elapsedTime / BREATH_S) * Math.PI * 2 - t.depth * 0.7);
       m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.15 + 0.4 * t.charge);
       if (rim.current) rim.current.material.opacity = 0.1 + 0.25 * t.charge + breath * (0.2 + 0.45 * t.charge);
-      // The reflection breathes with its slab, and the waterline glints drift like small waves.
+      // The reflection breathes with its slab.
       if (reflectionMat.current) reflectionMat.current.opacity = 0.8 + 0.2 * breath * (0.4 + t.charge);
-      if (glints.current && !reducedMotion) glints.current.material.dashOffset = -clock.elapsedTime * 0.6;
       if (age < RIPPLE_MS) moving = true;
     }
     if (moving) invalidate();
@@ -158,10 +156,6 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
   const edgeOpacity = selected ? 1 : 0.75 + 0.25 * t.charge;
   const [cx, cy] = t.center;
   // Top outline in world space (map y -> world z), closed, lifted a hair above the face to avoid z-fighting.
-  const waterline = useMemo<[number, number, number][]>(
-    () => [...poly, poly[0]!].map(([x, y]) => [x, step - SLAB - 0.4, y]),
-    [poly, step],
-  );
   const outline = useMemo<[number, number, number][]>(
     () => [...poly, poly[0]!].map(([x, y]) => [x, step + 1.05, y]),
     [poly, step],
@@ -194,8 +188,6 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
           <meshBasicMaterial ref={reflectionMat} vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
         </mesh>
       )}
-      {/* Waterline glints: a broken, sparkling white line where the slab meets the water. */}
-      <Line ref={glints} points={waterline} color="#ffffff" lineWidth={1.6} transparent opacity={0.8} dashed dashSize={0.9} gapSize={0.7} depthWrite={false} />
       <Line ref={rim} points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
       <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={1.4} transparent opacity={edgeOpacity} depthWrite={false} />
       {t.isHq && (
