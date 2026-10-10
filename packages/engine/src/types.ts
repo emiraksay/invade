@@ -37,7 +37,9 @@ export interface MapDef {
 // ---------- Game ----------
 
 export interface GameSettings {
-  campaignDays: number;     // default 30
+  campaignDays: number;     // default 7 (a season is one week, decision 19)
+  /** First day of the season (YYYY-MM-DD, game timezone). Day N = days since it + 1. */
+  seasonStart?: string;
   winThreshold: number;     // share of territories, default 0.51
   walkPhaseHours: number;   // default 24
   timezone: string;         // IANA, decides when a GameDay starts

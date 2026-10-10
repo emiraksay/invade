@@ -15,3 +15,13 @@ describe('seasonDay', () => {
     expect(seasonDay(new Date('2026-10-12T10:00:00Z'), 'Europe/Madrid')).toBe(1);
   });
 });
+
+describe('campaignDay', () => {
+  it('counts from the season start in the game timezone', async () => {
+    const { campaignDay } = await import('./SeasonBar');
+    expect(campaignDay(new Date('2026-10-10T12:00:00Z'), 'Europe/Madrid', '2026-10-09')).toBe(2);
+    expect(campaignDay(new Date('2026-10-09T23:30:00Z'), 'Europe/Madrid', '2026-10-09')).toBe(2);
+    expect(campaignDay(new Date('2026-10-20T12:00:00Z'), 'Europe/Madrid', '2026-10-09')).toBe(7);
+  });
+});
+
