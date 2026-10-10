@@ -6,6 +6,7 @@ import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { useGameByCode } from '../data/useGameByCode';
 import { useGameDay } from '../data/useGameDay';
+import { JoinQr } from '../components/JoinQr';
 import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
@@ -85,8 +86,15 @@ export function TableView({ teams, settings, live, code, players = [], events = 
         </div>
         <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
       </div>
-      <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }} className="muted">
-        <span style={{ fontSize: 16 }}>Join: <strong style={{ color: '#fff' }}>{joinUrl}</strong></span>
+      <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }} className="muted">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <JoinQr url={joinUrl} />
+          <div style={{ display: 'grid', gap: 4 }}>
+            <span className="display" style={{ fontSize: 18, color: '#fff' }}>Scan to join</span>
+            <span style={{ fontSize: 15 }}>{joinUrl}</span>
+            <span style={{ fontSize: 13 }}>Name, team, done. No app, no account.</span>
+          </div>
+        </div>
         <span aria-live="polite" style={{ fontSize: 14 }}>{live ? '● Live' : '○ Reconnecting…'}</span>
       </footer>
     </main>
