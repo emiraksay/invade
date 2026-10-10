@@ -16,7 +16,7 @@ Judging **16:00**. Feature freeze **14:30**. Rehearsal **15:30**, twice, on the 
 
 **Deploy**
 - [ ] `main` is deployed on Vercel (Emir redeploys; Kateryna's commits are blocked on the Hobby team).
-- [ ] `https://<app>/api/health` returns `ok` and `database: ok: INVADE game found`.
+- [ ] `https://invade.vercel.app/api/health` returns `ok` and `database: ok: INVADE game found`.
 - [ ] Vercel env has `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SHORTCUT_URL`, `ANTHROPIC_API_KEY`.
 
 **Players and data**
@@ -34,7 +34,7 @@ Judging **16:00**. Feature freeze **14:30**. Rehearsal **15:30**, twice, on the 
 **Fallbacks ready (paste into Notes on Phone B)**
 - Apple Health sync fails → the backup posts a demo sync from a laptop (replace the token with the player's sync code from their Connect screen):
   ```bash
-  curl -X POST https://<app>/api/steps -H 'content-type: application/json' \
+  curl -X POST https://invade.vercel.app/api/steps -H 'content-type: application/json' \
     -d '{"token":"INV-XXXX-XXXX-XXXX","steps":10050,"day":"2026-10-10","source":"demo"}'
   ```
 - 3D map does not appear on a phone → nothing to do, the SVG map shows automatically.
