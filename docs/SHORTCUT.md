@@ -1,8 +1,8 @@
 # "Invade Sync" iOS Shortcut
 
-Web apps can't read Apple Health. A Shortcut can, so this one bridges Health to our server. **Build it once** (Emir, ~10 min), share the iCloud link, and every player installs that same Shortcut. It holds no personal data: on the first run it asks for the player's private code and stores it on their phone.
+Web apps can't read Apple Health. A Shortcut can, so this one bridges Health to our server. **Build it once** (Emir, ~10 min), share the iCloud link, and every player installs that same Shortcut. The shared version holds no personal data: each player replaces `PASTE-YOUR-CODE-HERE` in its first card with their own private code.
 
-What it sends: **today's step total only** → `POST /api/steps { token, steps, day }`. The server keeps the highest total per day, so running it any number of times is safe.
+What it sends: **today's step total only** → `POST /api/steps { token, steps }`. The server keeps the highest total per day, so running it any number of times is safe.
 
 ## Build it (Shortcuts app → **+**), verified on iOS in Turkish
 
@@ -22,7 +22,7 @@ The first run asks for **Health access**: allow **Steps**, and allow the connect
 
 ### Apple Watch note (the double counting check)
 
-Health stores steps from both the iPhone and the Watch, and adding up the raw records can count some steps twice. **Group By: Day** in step 8 makes Health return its own de-duplicated daily total. **Verify:** after syncing, compare the notification's number with Health app → Steps → Today. If they differ (only possible for Watch owners), change step 8 to filter **Source is <this iPhone's name>** and remove Group By.
+Health stores steps from both the iPhone and the Watch, and adding up the raw records can count some steps twice. **Group By: Day** in step 2 makes Health return its own de-duplicated daily total. **Verify:** after syncing, compare the notification's number with Health app → Steps → Today. If they differ (only possible for Watch owners), change step 2 to filter **Source is <this iPhone's name>** and remove Group By.
 
 ## Share it
 
