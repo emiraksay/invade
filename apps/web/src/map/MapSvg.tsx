@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Point, TeamId } from '@invade/engine';
 import type { MapView, PieceView, TerritoryView } from './model';
-import { ATTACK_RED, attackMark, garrisonAt, playerColors, useFlip, usePop, type AttackMark } from './pieces';
+import { ATTACK_RED, attackMark, garrisonAt, piecePositions, playerColors, useFlip, usePop, type AttackMark } from './pieces';
 import { insetPolygon, SLAB_GAP } from './geometry';
 import { CROWN_FILL, CROWN_H, CROWN_PATH, CROWN_W } from './crown';
 
@@ -110,9 +110,9 @@ function Garrison({ t, occupied }: { t: TerritoryView; occupied: boolean }) {
 }
 
 /** A player piece: disc in team colour with the initial and a ring in the player's colour, soldier badge bottom-right, name below. */
-function Piece({ p, lift, color, onTap }: { p: PieceView; lift: number; color: string; onTap?: (p: PieceView) => void }) {
+function Piece({ p, at, lift, color, onTap }: { p: PieceView; at: Point; lift: number; color: string; onTap?: (p: PieceView) => void }) {
   const pop = usePop(p.soldiers);
-  const [x, y] = [p.position[0], p.position[1] - lift];
+  const [x, y] = [at[0], at[1] - lift];
   const light = p.team === 'white';
   return (
     <g
@@ -170,6 +170,7 @@ export function MapSvg({ view, selected = null, onTap, flat = false, targets = n
   const tiles = [...view.territories].sort((a, b) => a.center[1] - b.center[1]);
   const colors = playerColors(view.pieces);
   const occupied = new Set(view.pieces.map((p) => p.territoryId));
+  const spots = piecePositions(view);
   const myTerritory = view.pieces.find((p) => p.isMe)?.territoryId;
   return (
     <div style={{ perspective: flat ? undefined : '900px', margin: flat ? 0 : '-10% 0 -6%' }}>
@@ -188,11 +189,12 @@ export function MapSvg({ view, selected = null, onTap, flat = false, targets = n
         {tiles.map((t) => (
           <Tile key={t.id} t={t} pulse={pulses[t.owner]} selected={t.id === selected} onTap={onTap} mark={attackMark(t.id, targets, myTerritory)} />
         ))}
-        {tiles.map((t) => <Garrison key={`g-${t.id}`} t={t} occupied={t.isHq || occupied.has(t.id)} />)}
+        {/* Figma: the HQ shows only its crown, no number next to it. */}
+        {tiles.filter((t) => !t.isHq).map((t) => <Garrison key={`g-${t.id}`} t={t} occupied={occupied.has(t.id)} />)}
         {view.pieces.map((p) => {
           const t = view.territories.find((x) => x.id === p.territoryId);
           const lift = t?.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
-          return <Piece key={p.playerId} p={p} lift={lift} color={colors.get(p.playerId)!} onTap={p.isMe ? onPieceTap : undefined} />;
+          return <Piece key={p.playerId} p={p} at={spots.get(p.playerId)!} lift={lift} color={colors.get(p.playerId)!} onTap={p.isMe ? onPieceTap : undefined} />;
         })}
       </svg>
     </div>

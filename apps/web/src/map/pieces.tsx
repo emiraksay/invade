@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import type { PieceView } from './model';
+import type { Point } from '@invade/engine';
+import type { MapView, PieceView } from './model';
 
 /**
  * Each player's ring colour. The first three are the cousin's Sctech Place frame (red, blue, green
@@ -12,7 +13,26 @@ export function playerColors(pieces: readonly PieceView[]): Map<string, string> 
   return new Map(pieces.map((p, i) => [p.playerId, PLAYER_COLORS[i % PLAYER_COLORS.length]!]));
 }
 
-/** Map units: the garrison badge moves up-left of the territory centre when a piece (or the HQ crown) is there. */
+/** Map units between the centres of pieces sharing a territory (a disc is ~8 units wide with its name). */
+const PIECE_SPACING = 10;
+
+/**
+ * Where to draw each piece: alone on a territory it stands at the centre; players sharing one stand
+ * side by side in a row (the camera looks across the map, so a row never hides anyone or merges names).
+ */
+export function piecePositions(view: Pick<MapView, 'pieces' | 'territories'>): Map<string, Point> {
+  const centers = new Map(view.territories.map((t) => [t.id, t.center]));
+  const groups = new Map<string, PieceView[]>();
+  for (const p of view.pieces) groups.set(p.territoryId, [...(groups.get(p.territoryId) ?? []), p]);
+  const out = new Map<string, Point>();
+  for (const [id, group] of groups) {
+    const [cx, cy] = centers.get(id) ?? group[0]!.position;
+    group.forEach((p, i) => out.set(p.playerId, [cx + (i - (group.length - 1) / 2) * PIECE_SPACING, cy]));
+  }
+  return out;
+}
+
+/** Map units: the garrison badge moves up-left of the territory centre when a piece is there. */
 export const GARRISON_OFFSET: readonly [number, number] = [-8, -6];
 
 /** Where to draw a territory's garrison number: its centre, or off to the side if something else is drawn there. */

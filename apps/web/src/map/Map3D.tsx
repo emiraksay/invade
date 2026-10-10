@@ -8,7 +8,7 @@ import type { Point, TeamId } from '@invade/engine';
 import type { MapView, PieceView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
 import { CROWN_FILL, CrownIcon } from './crown';
-import { ATTACK_RED, attackMark, garrisonAt, GarrisonBadge, PieceToken, playerColors, type AttackMark } from './pieces';
+import { ATTACK_RED, attackMark, garrisonAt, piecePositions, GarrisonBadge, PieceToken, playerColors, type AttackMark } from './pieces';
 
 /**
  * Live 3D battlefield (three.js via React Three Fiber), matching the Figma's dark render:
@@ -307,6 +307,7 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
   const byId = useMemo(() => new Map(view.territories.map((t) => [t.id, t])), [view]);
   const colors = useMemo(() => playerColors(view.pieces), [view]);
   const occupied = useMemo(() => new Set(view.pieces.map((p) => p.territoryId)), [view]);
+  const spots = useMemo(() => piecePositions(view), [view]);
   const myTerritory = view.pieces.find((p) => p.isMe)?.territoryId;
   return (
     <div
@@ -349,8 +350,9 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
             <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} coastEdges={coast.get(t.id) ?? NO_EDGES} mark={attackMark(t.id, targets, myTerritory)} />
           ))}
           {/* Garrison numbers and player pieces float just above the tile tops and always face the camera. */}
-          {view.territories.map((t) => {
-            const [gx, gz] = garrisonAt(t.center, t.isHq || occupied.has(t.id));
+          {/* Figma: the HQ shows only its crown, no number next to it. */}
+          {view.territories.filter((t) => !t.isHq).map((t) => {
+            const [gx, gz] = garrisonAt(t.center, occupied.has(t.id));
             return (
             <Html key={`g-${t.id}`} position={[gx, topOf(t) + 1.5, gz]} center distanceFactor={120} zIndexRange={[20, 11]} style={{ pointerEvents: 'none' }}>
               <GarrisonBadge soldiers={t.soldiers} />
@@ -360,7 +362,7 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
           {view.pieces.map((p) => {
             const t = byId.get(p.territoryId);
             return (
-              <Html key={`p-${p.playerId}`} position={[p.position[0], (t ? topOf(t) : 0) + 3, p.position[1]]} center distanceFactor={120} zIndexRange={[40, 21]} style={{ pointerEvents: p.isMe && onPieceTap ? 'auto' : 'none' }}>
+              <Html key={`p-${p.playerId}`} position={[spots.get(p.playerId)![0], (t ? topOf(t) : 0) + 3, spots.get(p.playerId)![1]]} center distanceFactor={120} zIndexRange={[40, 21]} style={{ pointerEvents: p.isMe && onPieceTap ? 'auto' : 'none' }}>
                 <PieceToken piece={p} color={colors.get(p.playerId)!} onTap={p.isMe ? onPieceTap : undefined} />
               </Html>
             );
