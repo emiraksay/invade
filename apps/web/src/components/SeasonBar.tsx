@@ -27,10 +27,10 @@ export function SeasonBar({ war, teamNames, timezone, seasonStart, big = false }
   const day = campaignDay(new Date(), timezone, seasonStart);
   const white = Math.round(territoryShare(war, 'white') * 100);
   const black = Math.round(territoryShare(war, 'black') * 100);
-  const fs = big ? 28 : 13;
+  const fs = big ? 28 : 11;
 
   return (
-    <section style={{ display: 'grid', gap: big ? 12 : 6 }} aria-label="Season">
+    <section style={{ display: 'grid', gap: big ? 12 : 3 }} aria-label="Season">
       <p className="display" style={{ margin: 0, fontSize: big ? 36 : 15, textAlign: 'center' }}>
         {day === 7 ? 'Day 7 of 7 · Final day' : `Day ${day} of 7 · Sunday is the final`}
       </p>
@@ -42,7 +42,7 @@ export function SeasonBar({ war, teamNames, timezone, seasonStart, big = false }
         role="img"
         aria-label={`${teamNames.white} ${white}%, ${teamNames.black} ${black}%`}
         style={{
-          display: 'flex', height: big ? 22 : 10, borderRadius: big ? 11 : 5, overflow: 'hidden',
+          display: 'flex', height: big ? 22 : 6, borderRadius: big ? 11 : 3, overflow: 'hidden',
           background: 'var(--color-track)', border: '1px solid var(--color-text-muted)',
         }}
       >
