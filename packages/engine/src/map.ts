@@ -185,5 +185,5 @@ function sharesEdge(voronoi: Voronoi, a: number, b: number): boolean {
 }
 
 /** The weekly map (decision 19): seven zones of different sizes; each team starts with half the land. */
-export const MAP_SEED = 617;
+export const MAP_SEED = 58;
 export const DEFAULT_MAP: MapDef = generateMap({ seed: MAP_SEED, count: 7, relax: 0, split: 'area', names: ZONE_NAMES, idPrefix: 'z', wobble: 4 });

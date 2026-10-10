@@ -1729,7 +1729,7 @@ var init_map = __esm({
     round = (n) => Math.round(n * 100) / 100;
     WAVE_SEGMENTS = 10;
     EDGE_EPS = 1e-6;
-    MAP_SEED = 617;
+    MAP_SEED = 58;
     DEFAULT_MAP = generateMap({ seed: MAP_SEED, count: 7, relax: 0, split: "area", names: ZONE_NAMES, idPrefix: "z", wobble: 4 });
   }
 });
