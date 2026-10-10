@@ -1,4 +1,5 @@
 import type { MapDef, Point, TeamDay, TeamId } from '@invade/engine';
+import { islandPoint, islandPolygon } from './island';
 
 /**
  * The map view model: what a renderer (SVG or three.js) draws, as pure data.
@@ -87,8 +88,9 @@ export function walkPhaseMapView(map: MapDef, teams: Record<TeamId, TeamProgress
       name: t.name,
       owner: t.team,
       isHq: t.isHq,
-      polygon: t.polygon,
-      center: t.center,
+      // Drawn on the Figma's island outline; the engine's map stays a rectangle.
+      polygon: islandPolygon(t.polygon, map.width, map.height),
+      center: islandPoint(t.center, map.width, map.height),
       neighbors: t.neighbors,
       soldiers: t.isHq ? teams[t.team].soldiers : 0,
       charge: clamp01(teamCharge(t.team) * levels - d),

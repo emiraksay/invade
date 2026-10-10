@@ -16,4 +16,4 @@ export function insetPolygon(polygon: readonly Point[], center: Point, gap: numb
 }
 
 /** Gap between slabs, in map units (the map is 100 x 160). */
-export const SLAB_GAP = 0.9;
+export const SLAB_GAP = 1.6;
