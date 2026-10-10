@@ -113,10 +113,34 @@ button, input { font: inherit; color: inherit; }
 }
 
 /* Walk screen (Figma Base + LOG): full-height column, the map takes whatever is left. */
-.walk { height: 100dvh; min-height: 0; gap: 14px; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
-.walk-map { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; justify-content: center; }
+.walk {
+  height: 100dvh; min-height: 0; overflow: hidden; gap: 12px;
+  /* room for the floating navbar (49px + 12px from the bottom) */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px + var(--size-navbar-h) + 12px);
+}
+/* The map fills what is left and is clipped there, so the screen never grows past the phone. */
+.walk-map { flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .walk-picked { position: absolute; left: 0; right: 0; bottom: 0; min-height: 18px; }
-.walk-scroll { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px; }
+.walk-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px;
+  /* Figma Idle: the list fades out under the navbar */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+}
+
+/* Figma Settings: thin wide title, big bold labels with square X boxes. */
+.settings { min-height: 100%; display: grid; gap: 36px; align-content: space-between; padding: 24px 8px 32px; }
+.settings-title { margin: 0; font-weight: 400; font-size: 24px; letter-spacing: 0.04em; text-transform: uppercase; }
+.settings-toggles { list-style: none; margin: 0 auto; padding: 0; display: grid; gap: 14px; width: min(100%, 270px); }
+.settings-toggles label { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-size: 26px; font-weight: 700; cursor: pointer; }
+.xbox {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none;
+  width: 34px; height: 34px; border: 2px solid #fff; background: transparent; cursor: pointer;
+  display: grid; place-content: center;
+}
+.xbox::before { content: '✕'; font-size: 30px; line-height: 1; font-weight: 700; color: #fff; transform: scale(0); transition: transform 120ms ease; }
+.xbox:checked::before { transform: scale(1); }
+.xbox:focus-visible { outline: 2px solid #7fb6ff; outline-offset: 2px; }
 
 /* Figma OPEN LIST: a light grey square-cornered button with dark text. */
 .open-list {

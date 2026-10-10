@@ -8,6 +8,7 @@ import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
+import { SettingsPanel } from '../components/SettingsPanel';
 import { LogBar } from '../components/LogBar';
 import type { MilestoneEvent } from '../data/events';
 import { Battlefield } from '../map/Battlefield';
@@ -30,7 +31,8 @@ export interface WalkViewProps {
 /**
  * ☀️ Walk Phase (Figma "Base" 298:26565 + "LOG" 457:3277), pure: everything it shows comes from props.
  * Map tab: countdown, stats, the battlefield as the scoreboard, OPEN LIST (milestones, nudge, tonight,
- * sync) and the LOG bar. The navbar's profile tab is the Figma "Idle" team panel.
+ * sync) and the LOG bar, with no scrolling. The floating navbar switches to the Figma "Idle" team
+ * panel and to Settings (Apple Health sync, SFX / Music / Notification).
  */
 export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
@@ -54,7 +56,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
 
   return (
     <main className="screen walk">
-      {tab === 'map' ? (
+      {tab === 'map' && (
         <>
           <Countdown timezone={settings.timezone} />
           <StatsBar stats={stats} />
@@ -71,13 +73,15 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           </button>
           <LogBar events={events} players={players} timezone={settings.timezone} />
         </>
-      ) : (
+      )}
+      {tab === 'team' && (
         <div className="walk-scroll">
-          <StatsBar stats={stats} active="soldiers" />
+          <StatsBar stats={stats} active={null} />
           <TeamList team={teams[mine]} name={settings.teamNames[mine]} myId={session.player.id} />
           <TeamList team={teams[other]} name={settings.teamNames[other]} myId={session.player.id} dim />
         </div>
       )}
+      {tab === 'settings' && <div className="walk-scroll"><SettingsPanel /></div>}
       <NavBar tab={tab} onTab={(t) => { setTab(t); setListOpen(false); }} />
 
       {listOpen && (
