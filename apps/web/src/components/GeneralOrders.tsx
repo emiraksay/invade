@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { GeneralOrder, GeneralResponse, TeamId } from '@invade/engine';
 import { api } from '../data/api';
+import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
 
@@ -37,7 +38,9 @@ export function GeneralOrders({ token, refreshKey, preload }: { token: string; r
   const [state, retry] = useGeneral(() => api.general(token), refreshKey, preload);
   return (
     <section aria-label="General's orders" style={{ display: 'grid', gap: 6, padding: '12px 14px', borderRadius: 'var(--radius-item)', background: 'rgba(255,255,255,0.06)', boxShadow: 'var(--shadow-item)' }}>
-      <h2 className="display" style={{ margin: 0, fontSize: 18 }}>⚔ General's orders</h2>
+      <h2 className="display" style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <img src={helmet} alt="" height={18} /> General's orders
+      </h2>
       {state.status === 'loading' && <p className="subtitle" style={{ textAlign: 'left', fontSize: 15 }}>The General is reading the map…</p>}
       {state.status === 'error' && (
         <p className="error" style={{ textAlign: 'left' }}>{state.error} <button type="button" className="muted" style={{ background: 'none', border: 0, textDecoration: 'underline', fontSize: 14 }} onClick={retry}>Try again</button></p>
