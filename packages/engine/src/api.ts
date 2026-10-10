@@ -1,6 +1,6 @@
 // HTTP contract between clients (web app, iOS Shortcut) and the server (Vercel functions in apps/web/api).
 // Reads go straight to Supabase (RLS read-only + Realtime). Every write goes through these endpoints.
-import type { GameDay, Player } from './types';
+import type { GameDay, Player, StepSource } from './types';
 
 /** Every endpoint returns this shape. `error` is safe to show; internals never leak. */
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -15,6 +15,8 @@ export interface SubmitStepsRequest {
   steps: number;
   /** Optional: defaults to today in the game's timezone (the server owns the clock). */
   day?: GameDay;
+  /** Where the total comes from. Defaults to 'apple_health'; 'demo' is for stage/judge demos. */
+  source?: StepSource;
 }
 export interface SubmitStepsResponse {
   day: GameDay;
