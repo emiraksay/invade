@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MAP, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, STARTING_GARRISON, type TeamId } from '@invade/engine';
 import { depthsFromHq, walkPhaseMapView, NO_PROGRESS } from './model';
 import { islandPolygon } from './island';
 
@@ -30,12 +30,34 @@ describe('walkPhaseMapView', () => {
     }
   });
 
-  it("puts today's soldiers in the HQ only", () => {
-    const view = walkPhaseMapView(DEFAULT_MAP, half);
+  it('gives every territory its starting garrison, plus the team bonus in the HQ', () => {
+    const view = walkPhaseMapView(DEFAULT_MAP, { ...half, white: { ...half.white, bonus: 2 } });
     const white = view.territories.filter((t) => t.owner === 'white');
-    expect(white.find((t) => t.isHq)!.soldiers).toBe(22);
-    expect(white.filter((t) => !t.isHq).every((t) => t.soldiers === 0)).toBe(true);
-    expect(view.territories.filter((t) => t.owner === 'black').every((t) => t.soldiers === 0)).toBe(true);
+    expect(white.find((t) => t.isHq)!.soldiers).toBe(STARTING_GARRISON + 2);
+    expect(white.filter((t) => !t.isHq).every((t) => t.soldiers === STARTING_GARRISON)).toBe(true);
+    expect(view.territories.filter((t) => t.owner === 'black').every((t) => t.soldiers === STARTING_GARRISON)).toBe(true);
+  });
+
+  it('places a piece for every member with their soldiers, and marks mine', () => {
+    const p = (id: string, team: TeamId, steps: number, soldiers: number) => ({ player: { id, name: id, team }, steps, soldiers, next: null });
+    const teams = {
+      white: { soldiers: 8, maxSoldiers: 22, members: [p('emir', 'white', 10_200, 8)] },
+      black: { soldiers: 4, maxSoldiers: 22, members: [p('kateryna', 'black', 5_100, 4)] },
+    };
+    const view = walkPhaseMapView(DEFAULT_MAP, teams, { myId: 'emir' });
+    expect(view.pieces.map((x) => [x.playerId, x.team, x.soldiers, x.isMe])).toEqual([
+      ['emir', 'white', 8, true],
+      ['kateryna', 'black', 4, false],
+    ]);
+    for (const piece of view.pieces) {
+      const t = view.territories.find((tv) => tv.id === piece.territoryId)!;
+      expect(t.owner).toBe(piece.team);
+      expect(t.isHq).toBe(false);
+    }
+  });
+
+  it('has no pieces when member data is missing (previews)', () => {
+    expect(walkPhaseMapView(DEFAULT_MAP, NO_PROGRESS).pieces).toEqual([]);
   });
 
   it('is dark with no steps and fully lit at the daily max', () => {
