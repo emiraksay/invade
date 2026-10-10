@@ -1,13 +1,14 @@
 import { attackOptions, type AttackOption, type BattleRecord } from '@invade/engine';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type Nudge, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type GeneralResponse, type Nudge, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { NavBar, type Tab } from '../components/NavBar';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
+import { GeneralOrders } from '../components/GeneralOrders';
 import { DemoSync } from '../components/DemoSync';
 import { AttackSheet } from '../components/AttackSheet';
 import { SettingsPanel } from '../components/SettingsPanel';
@@ -32,8 +33,9 @@ export interface WalkViewProps {
   /** Every battle so far (oldest first) and today's game day: the map replays the war from them. */
   battles?: BattleRecord[];
   day?: string;
-  /** Dev previews only: a canned nudge response so the team tab can be seen without the API. */
+  /** Dev previews only: canned responses so the cards can be seen without the API. */
   nudgePreload?: NudgeResponse;
+  generalPreload?: GeneralResponse;
 }
 
 const byPlayer = (r?: NudgeResponse): Record<string, Nudge> => Object.fromEntries((r?.nudges ?? []).map((n) => [n.playerId, n]));
@@ -45,7 +47,7 @@ const byPlayer = (r?: NudgeResponse): Record<string, Nudge> => Object.fromEntrie
  * panel and to Settings (Apple Health sync, SFX / Music / Notification). Teammates who need a nudge
  * get a NUDGE tag by their name (and a dot on the helmet); their row holds the message to send.
  */
-export function WalkView({ session, teams, settings, live, players = [], events = [], battles = [], day, nudgePreload }: WalkViewProps) {
+export function WalkView({ session, teams, settings, live, players = [], events = [], battles = [], day, nudgePreload, generalPreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
@@ -166,6 +168,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
               <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Today</h2>
               <button type="button" className="sheet-close" onClick={() => setListOpen(false)} aria-label="Close list">✕</button>
             </header>
+            <GeneralOrders token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}:${battles.length}`} preload={generalPreload} />
             <MilestoneTrack me={me} />
             <TonightCard teams={teams} settings={settings} myTeam={mine} />
             <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }} href={SYNC_SHORTCUT_URL}>

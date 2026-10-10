@@ -90,3 +90,23 @@ export interface AttackResponse {
   attackersLeft: number;
   defendersLeft: number;
 }
+
+/**
+ * POST /api/general — the AI General: one order from the live map. Code picks the order and every number
+ * (decision 14); Claude only writes the words. `{ token }` for a player, `{ code, team }` for the team
+ * version on the big screen.
+ */
+export type GeneralRequest = { token: string } | { code: string; team: 'white' | 'black' };
+export type GeneralOrder = { player: string; team: 'white' | 'black' } & (
+  | { kind: 'attack'; to: string; target: string; soldiers: number; defenders: number; odds: number }
+  | { kind: 'bonus'; stepsToGo: number; threshold: number; bonus: number }
+  | { kind: 'walk'; stepsToGo: number; gain: number }
+  | { kind: 'hold'; territory: string }
+);
+export interface GeneralResponse {
+  day: GameDay;
+  order: GeneralOrder;
+  /** One or two short lines in the General's voice, ≤ 140 characters, ready to show. */
+  text: string;
+  writer: 'claude' | 'template';
+}
