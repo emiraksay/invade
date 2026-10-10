@@ -116,3 +116,14 @@ create policy "read events"       on public.events       for select to anon, aut
 
 -- Realtime: screens subscribe to new/updated step reports and events.
 alter publication supabase_realtime add table public.step_reports, public.events, public.players;
+
+-- Explicit privileges (the project does NOT auto-expose new tables to the Data API).
+-- Clients (anon/authenticated): read-only on public game data; RLS above still applies.
+-- player_secrets is deliberately not granted to clients at all.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.games, public.players, public.step_reports, public.events to anon, authenticated;
+-- Server (service role, bypasses RLS): full access, and the only role allowed to call the write functions.
+grant all on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+grant execute on function public.report_steps(uuid, date, integer, text) to service_role;
+grant execute on function public.create_player(uuid, text, text, text) to service_role;
