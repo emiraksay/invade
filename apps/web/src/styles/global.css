@@ -263,3 +263,8 @@ button, input { font: inherit; color: inherit; }
 .nav-zone { position: relative; }
 .nav-dot { position: absolute; top: 8px; left: calc(50% + 10px); }
 .nudge-note { display: grid; gap: 10px; margin: 0 16px 14px 46px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.18); }
+
+/* A map that fits a fixed height (dawn on the night reveal). */
+.fit-map { height: 44dvh; display: flex; justify-content: center; align-items: center; }
+.fit-map > div { height: 100%; margin: 0; }
+.fit-map svg { height: 100%; width: auto; }

@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { DEFAULT_MAP, type BattleRecord, type GameSettings, type GeneralResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { TeamGeneral } from '../components/GeneralOrders';
 import { describeEvent, type MilestoneEvent } from '../data/events';
@@ -113,7 +113,12 @@ export function TableView({ teams, settings, live, code, players = [], events = 
             <span style={{ fontSize: 13 }}>Name, team, done. No app, no account.</span>
           </div>
         </div>
-        <span aria-live="polite" style={{ fontSize: 14 }}>{live ? '● Live' : '○ Reconnecting…'}</span>
+        <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
+          <Link to={`/night?code=${code}`} className="display" style={{ color: '#fff', fontSize: 18, textDecoration: 'none', minHeight: 48, display: 'flex', alignItems: 'center' }}>
+            Tonight's reveal →
+          </Link>
+          <span aria-live="polite" style={{ fontSize: 14 }}>{live ? '● Live' : '○ Reconnecting…'}</span>
+        </div>
       </footer>
     </main>
   );
