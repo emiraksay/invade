@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MAP, type TeamId } from '@invade/engine';
 import { depthsFromHq, walkPhaseMapView, NO_PROGRESS } from './model';
+import { islandPolygon } from './island';
 
 const full = { white: { soldiers: 44, maxSoldiers: 44 }, black: { soldiers: 44, maxSoldiers: 44 } };
 const half = { white: { soldiers: 22, maxSoldiers: 44 }, black: { soldiers: 0, maxSoldiers: 44 } };
@@ -25,7 +26,7 @@ describe('walkPhaseMapView', () => {
       const src = DEFAULT_MAP.territories[i]!;
       expect(t.id).toBe(src.id);
       expect(t.owner).toBe(src.team);
-      expect(t.polygon).toBe(src.polygon);
+      expect(t.polygon).toEqual(islandPolygon(src.polygon, DEFAULT_MAP.width, DEFAULT_MAP.height));
     }
   });
 
