@@ -25,6 +25,9 @@ The server is the only writer of game state; the LLM never computes odds or rule
 
 ## Git workflow (mandatory, see CONTRIBUTING.md)
 
+- **NEVER merge a pull request (no `gh pr merge`, no merge button), even if CI is green.** Open the PR, post its link in the team chat, and stop. **Only Emir (team lead) merges**, at the merge windows (13:00, 13:45, 14:30). Feature freeze 14:30.
+- **Stay in your area** (ownership below). If a change needs another area, ask its owner in chat instead of editing it.
+
 - Never commit or push to `main`. Always work on a branch named `feat|fix|chore|docs/<area>-<thing>`.
 - Before starting: `git switch main && git pull`, then create the branch.
 - Use conventional commits (`feat(engine): ...`). Commit small and push at least hourly.
@@ -37,3 +40,12 @@ The server is the only writer of game state; the LLM never computes odds or rule
 
 - This file and `CONTRIBUTING.md` are the single source of truth for team rules. Change them only via PR.
 - Personal preferences go in `CLAUDE.local.md` (gitignored) or `~/.claude/CLAUDE.md`, never in shared files.
+
+## Ownership (until the demo)
+
+| Area | Owner |
+|---|---|
+| Game rules and logic: `packages/engine`, `apps/web/src/map/model.ts`, `apps/web/server` | Emir (+ Claude) |
+| Map rendering + Walk screen: `apps/web/src/map/*` (except model.ts), `screens/WalkPhase.tsx` | Varya |
+| Big screen `/table` + AI nudge delivery: `screens/Table.tsx`, `components/Nudge*`, `data/events*` | Kateryna |
+
