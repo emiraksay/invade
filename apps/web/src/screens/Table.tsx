@@ -7,6 +7,7 @@ import { walkPhaseMapView } from '../map/model';
 import { useGameByCode } from '../data/useGameByCode';
 import { useGameDay } from '../data/useGameDay';
 import { JoinQr } from '../components/JoinQr';
+import { Spotlight } from '../components/Spotlight';
 import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
@@ -26,7 +27,7 @@ function TeamColumn({ team, name, align }: { team: TeamDay; name: string; align:
         </p>
       </header>
       {team.members.length === 0 && <p className="muted" style={{ margin: 0 }}>Nobody yet.</p>}
-      {team.members.map((m) => (
+      {[...team.members].sort((a, b) => b.soldiers - a.soldiers || b.steps - a.steps).map((m) => (
         <div key={m.player.id} className="item" style={{ flexDirection: align === 'right' ? 'row-reverse' : 'row', fontSize: 18 }}>
           <span className={`avatar avatar-${team.team}`} style={{ width: 34, height: 34 }} />
           <strong style={{ flex: 1 }}>{m.player.name}</strong>
@@ -82,10 +83,12 @@ export function TableView({ teams, settings, live, code, players = [], events = 
         <TeamColumn team={teams.white} name={settings.teamNames.white} align="left" />
         <div style={{ display: 'grid', gap: 8 }}>
           <Battlefield view={view} bloom />
+          <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>● a player and the soldiers they carry today · numbers = garrison</p>
           <Feed events={events} players={players} timezone={settings.timezone} />
         </div>
         <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
       </div>
+      <Spotlight events={events} players={players} teamNames={settings.teamNames} />
       <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }} className="muted">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <JoinQr url={joinUrl} />

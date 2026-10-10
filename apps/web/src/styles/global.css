@@ -108,6 +108,12 @@ button, input { font: inherit; color: inherit; }
 .tile-pulse { opacity: 0; animation: tile-pulse 1100ms ease-out both; }
 @keyframes tile-pulse { 0% { opacity: 0; } 15% { opacity: 0.85; } 100% { opacity: 0; } }
 
+/* Big-screen spotlight (Table): pop in, hold, fade out. */
+.spotlight-in { animation: spotlight-in 350ms cubic-bezier(.2,.9,.3,1.2) both; }
+.spotlight-out { animation: spotlight-out 500ms ease-in both; }
+@keyframes spotlight-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+@keyframes spotlight-out { from { opacity: 1; } to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
