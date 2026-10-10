@@ -4,6 +4,7 @@ import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
+import { LazyMap } from '../map/LazyMap';
 import { loadSession } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
@@ -31,6 +32,13 @@ export function WalkPhase() {
     <main className="screen">
       <Countdown timezone={settings.timezone} />
       <StatsBar stats={{ teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories }} />
+      <LazyMap
+        myTeam={session.player.team}
+        fill={{
+          white: teams.white.maxSoldiers ? teams.white.soldiers / teams.white.maxSoldiers : 0,
+          black: teams.black.maxSoldiers ? teams.black.soldiers / teams.black.maxSoldiers : 0,
+        }}
+      />
       <MilestoneTrack me={me} />
       <TeamList team={teams.white} name={settings.teamNames.white} myId={session.player.id} />
       <TeamList team={teams.black} name={settings.teamNames.black} myId={session.player.id} />

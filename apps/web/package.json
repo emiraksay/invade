@@ -13,10 +13,14 @@
   },
   "dependencies": {
     "@invade/engine": "*",
+    "@react-three/drei": "^9.117.3",
+    "@react-three/fiber": "^8.17.10",
+    "@react-three/postprocessing": "^2.16.3",
     "@supabase/supabase-js": "2.47.10",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.28.0",
+    "three": "^0.170.0",
     "zod": "3.24.1"
   },
   "devDependencies": {
@@ -24,6 +28,7 @@
     "@types/node": "22.10.2",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
+    "@types/three": "^0.170.0",
     "@vercel/node": "3.2.29",
     "@vitejs/plugin-react": "4.3.4",
     "eslint": "9.17.0",
