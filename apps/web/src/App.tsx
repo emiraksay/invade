@@ -1,3 +1,4 @@
+import { DemoWeek } from './screens/DemoWeek';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ConnectHealth } from './screens/ConnectHealth';
 import { Join } from './screens/Join';
@@ -19,6 +20,7 @@ export function App() {
         <Route path="/walk" element={<WalkPhase />} />
         <Route path="/table" element={<Table />} />
         <Route path="/night" element={<NightReveal />} />
+        <Route path="/demo" element={<DemoWeek />} />
         {import.meta.env.DEV && <Route path="/preview/map" element={<MapPreview />} />}
         {import.meta.env.DEV && <Route path="/preview/table" element={<TablePreview />} />}
         {import.meta.env.DEV && <Route path="/preview/walk" element={<WalkPreview />} />}
