@@ -17,10 +17,14 @@ export function MapPreview() {
   const [selected, setSelected] = useState<TerritoryView | null>(null);
   const [mode, setMode] = useState<MapMode>('auto');
   const [bloom, setBloom] = useState(false);
+  // The fake players stand on the map as pieces (Kateryna is "me"); the sliders drive the team charge.
+  const day = '2026-10-10';
+  const reports: StepReport[] = FAKE_PLAYERS.map((p) => ({ playerId: p.id, day, steps: FAKE_STEPS[p.id] ?? 0, source: 'demo', reportedAt: day }));
+  const members = (team: TeamId) => summarizeTeamDay(team, FAKE_PLAYERS, reports, day).members;
   const view = walkPhaseMapView(DEFAULT_MAP, {
-    white: { soldiers: soldiers.white, maxSoldiers: MAX },
-    black: { soldiers: soldiers.black, maxSoldiers: MAX },
-  });
+    white: { soldiers: soldiers.white, maxSoldiers: MAX, members: members('white') },
+    black: { soldiers: soldiers.black, maxSoldiers: MAX, members: members('black') },
+  }, { myId: 'w1' });
   return (
     <main className="screen">
       <h1 style={{ margin: 0, textAlign: 'center', fontSize: 20, fontWeight: 700 }}>MAP PREVIEW</h1>

@@ -8,6 +8,7 @@ import type { Point, TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
 import { CROWN_FILL, CrownIcon } from './crown';
+import { garrisonAt, GarrisonBadge, PieceToken, playerColors } from './pieces';
 
 /**
  * Live 3D battlefield (three.js via React Three Fiber), matching the Figma's dark render:
@@ -255,6 +256,9 @@ export interface Map3DProps {
 }
 
 const NO_EDGES: readonly number[] = [];
+
+/** Height of a territory's top face (its fixed step, plus the HQ's lift), for things placed on it. */
+const topOf = (t: TerritoryView) => stepOf(t.id) + (t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0);
 const vkey = ([x, y]: Point) => `${x.toFixed(4)},${y.toFixed(4)}`;
 
 /** For each territory, the indices of its polygon edges on the coast (shared with no other territory). */
@@ -281,6 +285,9 @@ function coastEdgesOf(view: MapView): Map<string, number[]> {
 export default function Map3D({ view, selected = null, onTap, onReady, onContextDead, bloom = false }: Map3DProps) {
   const { width: w, height: h } = view;
   const coast = useMemo(() => coastEdgesOf(view), [view]);
+  const byId = useMemo(() => new Map(view.territories.map((t) => [t.id, t])), [view]);
+  const colors = useMemo(() => playerColors(view.pieces), [view]);
+  const occupied = useMemo(() => new Set(view.pieces.map((p) => p.territoryId)), [view]);
   return (
     <div
       style={{
@@ -321,6 +328,23 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
           {view.territories.map((t) => (
             <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} coastEdges={coast.get(t.id) ?? NO_EDGES} />
           ))}
+          {/* Garrison numbers and player pieces float just above the tile tops and always face the camera. */}
+          {view.territories.map((t) => {
+            const [gx, gz] = garrisonAt(t.center, t.isHq || occupied.has(t.id));
+            return (
+            <Html key={`g-${t.id}`} position={[gx, topOf(t) + 1.5, gz]} center distanceFactor={120} zIndexRange={[20, 11]} style={{ pointerEvents: 'none' }}>
+              <GarrisonBadge soldiers={t.soldiers} />
+            </Html>
+            );
+          })}
+          {view.pieces.map((p) => {
+            const t = byId.get(p.territoryId);
+            return (
+              <Html key={`p-${p.playerId}`} position={[p.position[0], (t ? topOf(t) : 0) + 3, p.position[1]]} center distanceFactor={120} zIndexRange={[40, 21]} style={{ pointerEvents: 'none' }}>
+                <PieceToken piece={p} color={colors.get(p.playerId)!} />
+              </Html>
+            );
+          })}
         </group>
         </group>
         {bloom && (

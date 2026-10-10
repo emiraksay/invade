@@ -62,6 +62,11 @@ export async function join(repo: Repo, input: unknown): Promise<ApiResult<JoinRe
   const game = await repo.findGameByCode(code);
   if (!game) return fail('No game with that code');
 
+  // One player per person: a name can only join a game once (case-insensitive). Returning players
+  // restore their session with their private code ("I already joined") instead of joining again.
+  const taken = (await repo.listPlayers(game.id)).some((p) => p.name.trim().toLowerCase() === name.toLowerCase());
+  if (taken) return fail(`${name} is already in this game. Tap "I already joined" and enter your code.`);
+
   const token = generateToken();
   try {
     const player = await repo.createPlayer(game.id, name, team, hashToken(token));

@@ -41310,6 +41310,8 @@ async function join(repo, input) {
   const { code, name, team } = parsed.data;
   const game = await repo.findGameByCode(code);
   if (!game) return fail("No game with that code");
+  const taken = (await repo.listPlayers(game.id)).some((p) => p.name.trim().toLowerCase() === name.toLowerCase());
+  if (taken) return fail(`${name} is already in this game. Tap "I already joined" and enter your code.`);
   const token = generateToken();
   try {
     const player = await repo.createPlayer(game.id, name, team, hashToken(token));
