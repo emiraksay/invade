@@ -10,6 +10,8 @@ import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
 import { DemoSync } from '../components/DemoSync';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { SoldiersArrive } from '../components/SoldiersArrive';
+import { unseenArrival } from '../data/arrivals';
 import { LogBar } from '../components/LogBar';
 import type { MilestoneEvent } from '../data/events';
 import { Battlefield } from '../map/Battlefield';
@@ -39,6 +41,12 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const [tab, setTab] = useState<Tab>('map');
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
+  // Last milestone event I tapped through on the "soldiers arrive" screen (per player, on this phone).
+  const seenKey = `invade:seen-arrival:${session.player.id}`;
+  const [seenId, setSeenId] = useState<number | null>(() => {
+    const v = Number(localStorage.getItem(seenKey));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  });
 
   useEffect(() => {
     if (!listOpen) return;
@@ -53,6 +61,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const me = myTeam.members.find((m) => m.player.id === session.player.id) ?? summarizePlayerDay(session.player, 0);
   const view = walkPhaseMapView(DEFAULT_MAP, teams);
   const territories = view.teams[mine].territories;
+  const arrival = unseenArrival(events, session.player.id, seenId, Date.now());
   const stats = { teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories };
 
   return (
@@ -83,6 +92,14 @@ export function WalkView({ session, teams, settings, live, players = [], events 
         </div>
       )}
       {tab === 'settings' && <div className="walk-scroll"><SettingsPanel /></div>}
+      {tab === 'map' && arrival && (
+        <SoldiersArrive
+          key={arrival.id}
+          ev={arrival}
+          teamSoldiers={myTeam.soldiers}
+          onDone={() => { localStorage.setItem(seenKey, String(arrival.id)); setSeenId(arrival.id); }}
+        />
+      )}
       <NavBar tab={tab} onTab={(t) => { setTab(t); setListOpen(false); }} />
 
       {listOpen && (
