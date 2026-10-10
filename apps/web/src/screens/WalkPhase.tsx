@@ -5,6 +5,7 @@ import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
+import { NudgeCard } from '../components/NudgeCard';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
 import { loadSession } from '../data/session';
@@ -13,7 +14,7 @@ import { useGameDay } from '../data/useGameDay';
 
 /**
  * ☀️ Walk Phase (Figma "Base" + "LOG"): countdown, stats, the battlefield as the scoreboard,
- * today's milestones, and the team list behind OPEN LIST.
+ * today's milestones, the nudge, and the team list behind OPEN LIST.
  */
 export function WalkPhase() {
   const session = loadSession();
@@ -44,6 +45,7 @@ export function WalkPhase() {
           : 'Tap a territory'}
       </p>
       <MilestoneTrack me={me} />
+      <NudgeCard token={session.token} />
       <button type="button" className="pill pill-block" onClick={() => setListOpen((o) => !o)} aria-expanded={listOpen}>
         {listOpen ? 'Close list' : 'Open list'}
       </button>
