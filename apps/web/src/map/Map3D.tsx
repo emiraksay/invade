@@ -4,10 +4,9 @@ import { Html, Line } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { Line2 } from 'three-stdlib';
-import type { TeamId } from '@invade/engine';
+import type { Point, TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
-import { islandOutline } from './island';
 import { CROWN_FILL, CrownIcon } from './crown';
 
 /**
@@ -19,11 +18,8 @@ import { CROWN_FILL, CrownIcon } from './crown';
 
 const SLAB = 5;                // thickness of each territory slab (map units)
 const REFLECTION_DEPTH = 80;   // how far the island's glowing reflection reaches down (map units)
-// The reflection plus wider, fainter copies (grow in map units): a cheap blur for its edges.
-const REFLECTION_BLUR = [
-  { grow: -SLAB_GAP, glow: 0.2 }, // flush with the outer slabs' sides
-  ...[0, 0.5, 1, 1.6, 2.3, 3.1].map((grow, i) => ({ grow, glow: 0.045 * Math.pow(0.72, i) })),
-];
+const REFLECTION_ROWS = 16;    // vertex rows down each column, so the fade is smooth
+const LIGHT_XZ = [-0.35, 0.94] as const; // columns facing this way (towards the viewer, a bit left) glow most
 const STEP_MAX = 2.4;          // slabs sit at slightly different heights, like the Figma's broken ground
 const MAP_YAW = -0.14;         // radians: the Figma's map sits slightly diagonal
 const HQ_LIFT_PER_SOLDIER = 0.25;
@@ -36,6 +32,51 @@ const COLOR: Record<TeamId, { dim: string; lit: string }> = {
 };
 // The slab sides are a cool blue-grey in the render, for both teams.
 const SIDE_COLOR: Record<TeamId, string> = { white: '#b9c6d8', black: '#8f9cb0' };
+
+/**
+ * A slab's reflection in the water (Figma): every coastal face of the slab continues straight down as a
+ * glowing column that fades smoothly to dark. One column set per slab, so the gaps between slabs keep
+ * the reflections separated; faces turned to the light glow more. Only outward faces are built, so
+ * columns never stack into stripes.
+ */
+function reflectionGeometry(poly: readonly Point[], center: Point, coastEdges: readonly number[], top: number): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const index: number[] = [];
+  for (const e of coastEdges) {
+    const a = poly[e]!, b = poly[(e + 1) % poly.length]!;
+    // Outward normal of the edge (in the map's xz plane), pointing away from the tile's centre.
+    let nx = b[1] - a[1], nz = -(b[0] - a[0]);
+    const len = Math.hypot(nx, nz) || 1;
+    nx /= len; nz /= len;
+    const mx = (a[0] + b[0]) / 2 - center[0], mz = (a[1] + b[1]) / 2 - center[1];
+    const flip = nx * mx + nz * mz < 0;
+    if (flip) { nx = -nx; nz = -nz; }
+    const facing = Math.max(0, nx * LIGHT_XZ[0] + nz * LIGHT_XZ[1]);
+    const glow = 0.1 + 0.34 * facing * facing;
+    const base = positions.length / 3;
+    for (let r = 0; r <= REFLECTION_ROWS; r++) {
+      const k = r / REFLECTION_ROWS;
+      const y = top - k * REFLECTION_DEPTH;
+      const v = glow * Math.pow(1 - k, 1.6);
+      for (const [x, z] of [a, b]) {
+        positions.push(x, y, z);
+        colors.push(v * 0.88, v * 0.94, v);
+      }
+    }
+    for (let r = 0; r < REFLECTION_ROWS; r++) {
+      const i0 = base + r * 2, i1 = i0 + 1, i2 = i0 + 2, i3 = i0 + 3;
+      // Wind so the front face looks outward (the inner side is culled: no stacking behind the island).
+      if (flip) index.push(i0, i2, i1, i1, i2, i3);
+      else index.push(i0, i1, i2, i1, i3, i2);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  g.setIndex(index);
+  return g;
+}
 
 /** Fixed per-territory height step (0..STEP_MAX), so the same tile always sits at the same height. */
 function stepOf(id: string): number {
@@ -50,7 +91,7 @@ const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-r
 const RIPPLE_MS = 1100;          // how long one tile glows after soldiers arrive
 const RIPPLE_STEP_MS = 140;      // delay per step from the HQ: the glow marches outward
 
-function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void }) {
+function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void; coastEdges: readonly number[] }) {
   const group = useRef<THREE.Group>(null);
   const material = useRef<THREE.MeshStandardMaterial>(null);
   const invalidate = useThree((s) => s.invalidate);
@@ -77,6 +118,12 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
   }, [shape, step]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   const glints = useRef<Line2>(null);
+  const reflection = useMemo(
+    () => reflectionGeometry(poly, t.center, coastEdges, step - SLAB + 0.5),
+    [poly, t.center, coastEdges, step],
+  );
+  useEffect(() => () => reflection.dispose(), [reflection]);
+  const reflectionMat = useRef<THREE.MeshBasicMaterial>(null);
 
   const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
   useEffect(() => invalidate(), [lift, invalidate]); // start easing toward the new height
@@ -100,6 +147,7 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
       m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.15 + 0.4 * t.charge);
       if (rim.current) rim.current.material.opacity = 0.1 + 0.25 * t.charge + breath * (0.2 + 0.45 * t.charge);
       // The reflection breathes with its slab, and the waterline glints drift like small waves.
+      if (reflectionMat.current) reflectionMat.current.opacity = 0.8 + 0.2 * breath * (0.4 + t.charge);
       if (glints.current && !reducedMotion) glints.current.material.dashOffset = -clock.elapsedTime * 0.6;
       if (age < RIPPLE_MS) moving = true;
     }
@@ -141,6 +189,11 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
         <meshStandardMaterial attach="material-1" color={SIDE_COLOR[t.owner]} roughness={0.45} metalness={0.1} />
       </mesh>
       {/* Thin bright rim where the top face meets the side, plus a faint glow as the team charges. */}
+      {coastEdges.length > 0 && (
+        <mesh geometry={reflection} raycast={() => null} renderOrder={1}>
+          <meshBasicMaterial ref={reflectionMat} vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        </mesh>
+      )}
       {/* Waterline glints: a broken, sparkling white line where the slab meets the water. */}
       <Line ref={glints} points={waterline} color="#ffffff" lineWidth={1.6} transparent opacity={0.8} dashed dashSize={0.9} gapSize={0.7} depthWrite={false} />
       <Line ref={rim} points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
@@ -151,46 +204,6 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
           <CrownIcon size={34} fill={CROWN_FILL[t.owner]} />
         </Html>
       )}
-    </group>
-  );
-}
-
-/**
- * The island's reflection in the water (Figma): one smooth glowing curtain hanging from the whole
- * coastline, blue-white at the waterline and fading to dark. Drawn once for the island (not per tile,
- * so overlaps never stack into stripes), plus a few wider, fainter copies that blur its edges.
- */
-function Reflection({ w, h }: { w: number; h: number }) {
-  const layers = useMemo(() => {
-    const coast = islandOutline(w, h);
-    return REFLECTION_BLUR.map(({ grow, glow }) => {
-      const pts = coast.map(([x, y]) => {
-        const dx = x - w / 2, dy = y - h / 2, d = Math.hypot(dx, dy) || 1;
-        return new THREE.Vector2(x + (dx / d) * grow, y + (dy / d) * grow);
-      });
-      const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: REFLECTION_DEPTH, steps: 14, bevelEnabled: false });
-      g.rotateX(Math.PI / 2);
-      g.translate(0, 0, 0); // top hidden inside the slabs, so the glow starts right under their sides
-      const pos = g.getAttribute('position');
-      const colors = new Float32Array(pos.count * 3);
-      for (let i = 0; i < pos.count; i++) {
-        const depth = Math.min(1, Math.max(0, (-SLAB - pos.getY(i)) / REFLECTION_DEPTH));
-        const v = glow * Math.pow(1 - depth, 1.5); // smooth, gentle fade
-        colors[i * 3] = v * 0.88; colors[i * 3 + 1] = v * 0.94; colors[i * 3 + 2] = v; // cold blue-white
-      }
-      g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      return g;
-    });
-  }, [w, h]);
-  useEffect(() => () => layers.forEach((g) => g.dispose()), [layers]);
-  return (
-    <group position={[-w / 2, 0, -h / 2]}>
-      {layers.map((g, i) => (
-        <mesh key={i} geometry={g} raycast={() => null} renderOrder={1}>
-          <meshBasicMaterial attach="material-0" visible={false} />
-          <meshBasicMaterial attach="material-1" vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
-        </mesh>
-      ))}
     </group>
   );
 }
@@ -249,8 +262,33 @@ export interface Map3DProps {
   bloom?: boolean;
 }
 
+const NO_EDGES: readonly number[] = [];
+const vkey = ([x, y]: Point) => `${x.toFixed(4)},${y.toFixed(4)}`;
+
+/** For each territory, the indices of its polygon edges on the coast (shared with no other territory). */
+function coastEdgesOf(view: MapView): Map<string, number[]> {
+  const owners = new Map<string, Set<string>>();
+  for (const t of view.territories) for (const p of t.polygon) {
+    const k = vkey(p);
+    if (!owners.has(k)) owners.set(k, new Set());
+    owners.get(k)!.add(t.id);
+  }
+  const out = new Map<string, number[]>();
+  for (const t of view.territories) {
+    const edges: number[] = [];
+    t.polygon.forEach((a, i) => {
+      const b = t.polygon[(i + 1) % t.polygon.length]!;
+      const shared = [...owners.get(vkey(a))!].some((id) => id !== t.id && owners.get(vkey(b))!.has(id));
+      if (!shared) edges.push(i);
+    });
+    out.set(t.id, edges);
+  }
+  return out;
+}
+
 export default function Map3D({ view, selected = null, onTap, onReady, onContextDead, bloom = false }: Map3DProps) {
   const { width: w, height: h } = view;
+  const coast = useMemo(() => coastEdgesOf(view), [view]);
   return (
     <div
       style={{
@@ -287,10 +325,9 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
         <directionalLight position={[-40, 120, 80]} intensity={1.1} />
         {/* Centre the map on the origin: x in [-w/2, w/2], z in [-h/2, h/2] (Black far, White near). */}
         <group rotation={[0, MAP_YAW, 0]}>
-        <Reflection w={w} h={h} />
         <group position={[-w / 2, 0, -h / 2]}>
           {view.territories.map((t) => (
-            <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} />
+            <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} coastEdges={coast.get(t.id) ?? NO_EDGES} />
           ))}
         </group>
         </group>
