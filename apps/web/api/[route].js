@@ -1603,7 +1603,7 @@ function centroid(polygon) {
   return [x / (6 * area), y / (6 * area)];
 }
 function generateMap(opts = {}) {
-  const { seed = 7, count = 24, width = 100, height = 160, relax = 3, split = "count", names = NAMES, idPrefix = "t" } = opts;
+  const { seed = 7, count = 24, width = 100, height = 160, relax = 3, split = "count", names = NAMES, idPrefix = "t", wobble = 0 } = opts;
   if (count > names.length) throw new Error(`count must be <= ${names.length}`);
   if (split === "count" && count % 2 !== 0) throw new Error("count must be even when splitting by count");
   const rng = seededRng(seed);
@@ -1636,17 +1636,54 @@ function generateMap(opts = {}) {
   const idOf = (cell) => `${idPrefix}${String(rank.get(cell) + 1).padStart(pad, "0")}`;
   const territories = order.map((cell, r) => {
     const polygon = cellPolygon(voronoi, cell);
+    const center = relax > 0 ? points[cell] : centroid(polygon);
     return {
       id: idOf(cell),
       name: names[r],
       team: teamOf(cell),
       isHq: r === 0 || r === count - 1,
-      polygon: polygon.map(([x, y]) => [round(x), round(y)]),
-      center: [round(points[cell][0]), round(points[cell][1])],
+      polygon: (wobble > 0 ? wavyPolygon(polygon, wobble, seed, width, height) : polygon).map(([x, y]) => [round(x), round(y)]),
+      center: [round(center[0]), round(center[1])],
       neighbors: [...delaunay.neighbors(cell)].filter((n) => sharesEdge(voronoi, cell, n)).map(idOf).sort()
     };
   });
   return { id: `voronoi-${seed}-${count}${split === "area" ? "-area" : ""}`, seed, width, height, territories };
+}
+function onBorder(a, b, width, height) {
+  const same = (v2, w) => Math.abs(v2 - w) < EDGE_EPS;
+  return same(a[0], 0) && same(b[0], 0) || same(a[0], width) && same(b[0], width) || same(a[1], 0) && same(b[1], 0) || same(a[1], height) && same(b[1], height);
+}
+function edgeHash(a, b, seed, salt) {
+  const k = [a, b].map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`).sort().join("|");
+  let h = (2166136261 ^ seed ^ salt * 2654435769) >>> 0;
+  for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 16777619) >>> 0;
+  return h / 4294967296;
+}
+function wavePoints(a, b, amp, seed) {
+  const flip = `${a[0].toFixed(4)},${a[1].toFixed(4)}` > `${b[0].toFixed(4)},${b[1].toFixed(4)}`;
+  const [p, q] = flip ? [b, a] : [a, b];
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  const f1 = 1 + Math.floor(edgeHash(p, q, seed, 1) * 2), f2 = 2 + Math.floor(edgeHash(p, q, seed, 2) * 3);
+  const ph1 = edgeHash(p, q, seed, 3) * Math.PI * 2, ph2 = edgeHash(p, q, seed, 4) * Math.PI * 2;
+  const size = amp * Math.min(1, len / 25);
+  const out = [];
+  for (let i = 1; i < WAVE_SEGMENTS; i++) {
+    const t = i / WAVE_SEGMENTS;
+    const off = size * Math.sin(Math.PI * t) * (0.65 * Math.sin(Math.PI * f1 * t + ph1) + 0.35 * Math.sin(Math.PI * f2 * t + ph2));
+    out.push([p[0] + dx * t + nx * off, p[1] + dy * t + ny * off]);
+  }
+  return flip ? out.reverse() : out;
+}
+function wavyPolygon(polygon, amp, seed, width, height) {
+  const out = [];
+  polygon.forEach((a, i) => {
+    const b = polygon[(i + 1) % polygon.length];
+    out.push(a);
+    if (!onBorder(a, b, width, height)) out.push(...wavePoints(a, b, amp, seed));
+  });
+  return out;
 }
 function cellPolygon(voronoi, i) {
   const ring = voronoi.cellPolygon(i);
@@ -1657,7 +1694,7 @@ function sharesEdge(voronoi, a, b) {
   const pa = new Set(cellPolygon(voronoi, a).map(key));
   return cellPolygon(voronoi, b).filter((p) => pa.has(key(p))).length >= 2;
 }
-var NAMES, ZONE_NAMES, round, MAP_SEED, DEFAULT_MAP;
+var NAMES, ZONE_NAMES, round, WAVE_SEGMENTS, EDGE_EPS, MAP_SEED, DEFAULT_MAP;
 var init_map = __esm({
   "../../packages/engine/src/map.ts"() {
     "use strict";
@@ -1690,8 +1727,10 @@ var init_map = __esm({
     ];
     ZONE_NAMES = ["Horta", "Sarri\xE0", "Gr\xE0cia", "Eixample", "Sant Mart\xED", "Sants", "Ciutat Vella"];
     round = (n) => Math.round(n * 100) / 100;
-    MAP_SEED = 162;
-    DEFAULT_MAP = generateMap({ seed: MAP_SEED, count: 7, relax: 1, split: "area", names: ZONE_NAMES, idPrefix: "z" });
+    WAVE_SEGMENTS = 10;
+    EDGE_EPS = 1e-6;
+    MAP_SEED = 617;
+    DEFAULT_MAP = generateMap({ seed: MAP_SEED, count: 7, relax: 0, split: "area", names: ZONE_NAMES, idPrefix: "z", wobble: 4 });
   }
 });
 
