@@ -3,21 +3,20 @@
 Source: Figma "RiskWalk (Copy)": https://www.figma.com/design/0HVELJrA313HiBhM2hBGMd/RiskWalk--Copy-
 Original design by Emir's cousin; this copy is ours to edit. Frames are 440×956 (iPhone).
 
-## Screens (snapshots in `docs/design/`)
+## Screens
 
-| File | Figma frame | Route / view |
+Snapshots are in `docs/design/`: `06-base-map.png` is the Base walk screen, `09-log.png` is Base with the LOG bottom bar (the target for /walk).
+
+| Figma frame | App route | Status |
 |---|---|---|
-| `01-signin.png` | SignIn (263:1186) | `/`: profile, name and colour |
-| `02-join-create.png` | Join/Create (263:1203) | `/`: create, or join by code |
-| `03-lobby-owner.png` | MatchLobby/LobbyOwner (347:1048) | `/lobby/:code`: teams, switch/kick, code, settings, start |
-| `04-lobby-settings.png` | MatchLobby/LobbySettigns (347:1435) | lobby settings sheet |
-| `05-idle.png` | Idle (310:1876) | `/play`: team stats tab with per-player details |
-| `06-base-map.png` | Base (298:26565) | `/play`: map tab during the Walk Phase (timer and stats bar) |
-| `07-place.png` | Place (298:26644) | Move Phase: Place step |
-| `08-attack.png` | Attack (298:26842) | Move Phase: Attack step |
-| `09-log.png` | LOG (457:3277) | Battle log |
-
-Other frames in Figma: Repose and Move variants, the kick popup, the non-owner lobby, and components (Buttons, LoadingBar, NumberBar, NumberCircle, PlayerItem, PlayerInfo, Navbar, SettingsButton, Text Input).
+| Join/Create (263:1203) + team choice | `/join` | ✅ built (skeleton styling) |
+| (MVP "Connect Health" onboarding) | `/connect` | ✅ built |
+| **Base (298:26565) + LOG bottom bar (457:3277)** | `/walk`: the **core screen** | ✅ skeleton → issue #6 (Figma fidelity + Map3D) |
+| Base, large, for the projector | `/table` | issue #7 |
+| SignIn / splash (263:1186) | — | later |
+| MatchLobby owner/non-owner, kick popup, LobbySettings | — | later (one fixed campaign today) |
+| Idle (team stats), LOG list | — | later |
+| Place / Repose / Move / Attack (night phase) | — | after the hackathon (pitch only) |
 
 ## Visual language
 
