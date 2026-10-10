@@ -54,7 +54,7 @@ export function TableView({ teams, settings, live, code }: TableViewProps) {
       </header>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(420px, 1.4fr) minmax(260px, 1fr)', gap: 32, alignItems: 'start' }}>
         <TeamColumn team={teams.white} name={settings.teamNames.white} align="left" />
-        <Battlefield view={view} />
+        <Battlefield view={view} bloom />
         <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
       </div>
       <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }} className="muted">

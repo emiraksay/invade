@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
@@ -168,9 +169,11 @@ export interface Map3DProps {
   onReady?: () => void;
   /** Called when the WebGL context was lost and not restored within a few seconds (e.g. iOS after backgrounding). */
   onContextDead?: () => void;
+  /** Bloom post-processing for the Figma's glow. Costs GPU: on for the projector, off on phones by default. */
+  bloom?: boolean;
 }
 
-export default function Map3D({ view, selected = null, onTap, onReady, onContextDead }: Map3DProps) {
+export default function Map3D({ view, selected = null, onTap, onReady, onContextDead, bloom = false }: Map3DProps) {
   const { width: w, height: h } = view;
   return (
     <div style={{ width: '100%', aspectRatio: '1 / 1.22', margin: '-6% 0 -8%' }}>
@@ -207,6 +210,11 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
           ))}
         </group>
         </group>
+        {bloom && (
+          <EffectComposer multisampling={0}>
+            <Bloom luminanceThreshold={0.72} luminanceSmoothing={0.2} intensity={0.75} mipmapBlur radius={0.55} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );

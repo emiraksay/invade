@@ -43,10 +43,12 @@ export interface BattlefieldProps {
   onTap?: (t: TerritoryView) => void;
   /** 'auto' (default): 3D when WebGL works, otherwise the SVG map. */
   mode?: MapMode;
+  /** Bloom glow in 3D (projector yes, phones no by default). */
+  bloom?: boolean;
 }
 
 /** The battlefield, in 3D where possible and as the 2.5D SVG everywhere else. Same props either way. */
-export function Battlefield({ view, selected, onTap, mode = 'auto' }: BattlefieldProps) {
+export function Battlefield({ view, selected, onTap, mode = 'auto', bloom = false }: BattlefieldProps) {
   const webgl = useMemo(hasWebGL, []);
   const [ready, setReady] = useState(false);   // the 3D map has painted its first frame
   const [svgGone, setSvgGone] = useState(false); // the SVG finished fading out
@@ -67,7 +69,7 @@ export function Battlefield({ view, selected, onTap, mode = 'auto' }: Battlefiel
       <div style={{ opacity: ready ? 1 : 0, transition: 'opacity 400ms ease' }}>
         <MapErrorBoundary onError={() => setDead(true)}>
           <Suspense fallback={null}>
-            <Map3D view={view} selected={selected} onTap={onTap} onReady={() => setReady(true)} onContextDead={() => setDead(true)} />
+            <Map3D view={view} selected={selected} onTap={onTap} onReady={() => setReady(true)} onContextDead={() => setDead(true)} bloom={bloom} />
           </Suspense>
         </MapErrorBoundary>
       </div>

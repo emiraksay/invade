@@ -13,6 +13,7 @@ export function MapPreview() {
   const [soldiers, setSoldiers] = useState<Record<TeamId, number>>({ white: 18, black: 6 });
   const [selected, setSelected] = useState<TerritoryView | null>(null);
   const [mode, setMode] = useState<MapMode>('auto');
+  const [bloom, setBloom] = useState(false);
   const view = walkPhaseMapView(DEFAULT_MAP, {
     white: { soldiers: soldiers.white, maxSoldiers: MAX },
     black: { soldiers: soldiers.black, maxSoldiers: MAX },
@@ -24,8 +25,9 @@ export function MapPreview() {
         {(['auto', '3d', 'svg'] as MapMode[]).map((m) => (
           <button key={m} type="button" className="pill" style={{ fontSize: 14, opacity: mode === m ? 1 : 0.5 }} onClick={() => setMode(m)}>{m}</button>
         ))}
+        <button type="button" className="pill" style={{ fontSize: 14, opacity: bloom ? 1 : 0.5 }} onClick={() => setBloom((b) => !b)}>bloom</button>
       </div>
-      <Battlefield view={view} selected={selected?.id} onTap={setSelected} mode={mode} />
+      <Battlefield view={view} selected={selected?.id} onTap={setSelected} mode={mode} bloom={bloom} />
       <p className="subtitle" style={{ minHeight: 20 }}>
         {selected ? `${selected.name} · ${selected.owner}${selected.isHq ? ' HQ' : ''} · charge ${Math.round(selected.charge * 100)}%` : 'Tap a territory'}
       </p>
