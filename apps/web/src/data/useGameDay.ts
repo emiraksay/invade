@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   gameDayOf,
+  type BattleRecord,
   summarizeTeamDay,
   type GameSettings,
   type Player,
@@ -10,12 +11,14 @@ import {
 } from '@invade/engine';
 import { supabase } from './supabase';
 import { toMilestoneEvent, type MilestoneEvent } from './events';
+import { toBattleRecord } from './battles';
 
 interface Snapshot {
   settings: GameSettings;
   players: Player[];
   reports: StepReport[];
   events: MilestoneEvent[]; // newest first
+  battles: BattleRecord[]; // all battles of the campaign, oldest first (the war is replayed from them)
 }
 
 export interface GameDayState {
@@ -27,6 +30,8 @@ export interface GameDayState {
   players?: Player[];
   /** Today's milestone events, newest first (the LOG bar / feed). */
   events?: MilestoneEvent[];
+  /** Every battle so far, oldest first. Pass to walkPhaseMapView(..., { battles, today: day }). */
+  battles?: BattleRecord[];
   live: boolean; // Realtime connected
 }
 
@@ -36,19 +41,22 @@ async function loadSnapshot(gameId: string): Promise<Snapshot> {
   if (game.error) throw game.error;
   const settings = game.data.settings as GameSettings;
   const day = gameDayOf(new Date(), settings.timezone);
-  const [players, reports, events] = await Promise.all([
+  const [players, reports, events, battles] = await Promise.all([
     supabase.from('players').select('id, name, team').eq('game_id', gameId).order('created_at'),
     supabase.from('step_reports').select('player_id, day, steps, source, updated_at').eq('game_id', gameId).eq('day', day),
     supabase.from('events').select('id, type, payload, created_at').eq('game_id', gameId).eq('type', 'milestone').order('created_at', { ascending: false }).limit(30),
+    supabase.from('events').select('id, type, payload, created_at').eq('game_id', gameId).eq('type', 'battle').order('created_at', { ascending: true }).limit(1000),
   ]);
   if (players.error) throw players.error;
   if (reports.error) throw reports.error;
   if (events.error) throw events.error;
+  if (battles.error) throw battles.error;
   return {
     settings,
     players: players.data as Player[],
     reports: reports.data.map((r) => ({ playerId: r.player_id, day: r.day, steps: r.steps, source: r.source, reportedAt: r.updated_at })),
     events: events.data.map(toMilestoneEvent).filter((e): e is MilestoneEvent => e !== null),
+    battles: battles.data.map(toBattleRecord).filter((b): b is BattleRecord => b !== null),
   };
 }
 
@@ -99,6 +107,6 @@ export function useGameDay(gameId: string | undefined): GameDayState {
     if (!snapshot) return { status: 'loading', live };
     const day = gameDayOf(new Date(), snapshot.settings.timezone);
     const team = (t: TeamId) => summarizeTeamDay(t, snapshot.players, snapshot.reports, day);
-    return { status: 'ready', day, settings: snapshot.settings, teams: { white: team('white'), black: team('black') }, players: snapshot.players, events: snapshot.events, live };
+    return { status: 'ready', day, settings: snapshot.settings, teams: { white: team('white'), black: team('black') }, players: snapshot.players, events: snapshot.events, battles: snapshot.battles, live };
   }, [snapshot, error, live]);
 }

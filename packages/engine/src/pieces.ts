@@ -30,16 +30,18 @@ export function depthsFromHq(map: MapDef, team: TeamId): Map<string, number> {
 }
 
 /**
- * Where each player's piece starts: spread evenly over the team's non-HQ territories, ordered
- * front line first, in the given player order (join order). Deterministic, so every screen agrees.
+ * Where each player's piece starts: on the team's front line (territories bordering the enemy) so
+ * every player can fight, spread evenly; if there are more players than front-line territories they
+ * share. Ordered deepest first, in the given player order (join order). Deterministic.
  * Returns playerId -> territoryId.
  */
 export function startingPositions(map: MapDef, players: readonly Player[]): Map<string, string> {
   const positions = new Map<string, string>();
   for (const team of ['white', 'black'] as TeamId[]) {
     const depth = depthsFromHq(map, team);
-    const slots = map.territories
-      .filter((t) => t.team === team && !t.isHq)
+    const enemy = new Set(map.territories.filter((t) => t.team !== team).map((t) => t.id));
+    const front = map.territories.filter((t) => t.team === team && !t.isHq && t.neighbors.some((n) => enemy.has(n)));
+    const slots = (front.length ? front : map.territories.filter((t) => t.team === team && !t.isHq))
       .sort((a, b) => (depth.get(b.id) ?? 0) - (depth.get(a.id) ?? 0) || a.id.localeCompare(b.id));
     const hq = map.territories.find((t) => t.team === team && t.isHq);
     const members = players.filter((p) => p.team === team);

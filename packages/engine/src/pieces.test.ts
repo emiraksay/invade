@@ -19,13 +19,15 @@ describe('startingPositions', () => {
     }
   });
 
-  it('spreads a full team over different territories, the first player on the front line', () => {
-    const players = team('white', 4);
+  it('puts every piece on the front line (next to an enemy territory) so everyone can fight', () => {
+    const players = [...team('white', 4), ...team('black', 4)];
     const pos = startingPositions(DEFAULT_MAP, players);
-    expect(new Set(pos.values()).size).toBe(4);
+    for (const p of players) {
+      const t = byId.get(pos.get(p.id)!)!;
+      expect(t.neighbors.some((n) => byId.get(n)!.team !== p.team)).toBe(true);
+    }
     const depth = depthsFromHq(DEFAULT_MAP, 'white');
-    const maxDepth = Math.max(...depth.values());
-    expect(depth.get(pos.get('white-0')!)).toBe(maxDepth);
+    expect(depth.get(pos.get('white-0')!)).toBe(Math.max(...[...pos.entries()].filter(([id]) => id.startsWith('white')).map(([, t]) => depth.get(t)!)));
   });
 
   it('is deterministic and keeps earlier players in place when someone joins later', () => {
