@@ -23,4 +23,5 @@ npm test && npm run typecheck && npm run lint   # before every PR
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Stack, how game data works, contracts |
 | [docs/DESIGN.md](docs/DESIGN.md) | Figma screens → app screens, visual language |
 | [docs/SHORTCUT.md](docs/SHORTCUT.md) | The Apple Health "Invade Sync" Shortcut |
+| [docs/DEMO.md](docs/DEMO.md) | Demo day: rehearsal checklist, fallbacks, the 90-second script |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How we work with git and PRs |
