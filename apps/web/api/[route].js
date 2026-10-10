@@ -1795,6 +1795,96 @@ var init_war = __esm({
   }
 });
 
+// ../../packages/engine/src/director.ts
+function leader(state) {
+  const { white, black } = state.points;
+  return white === black ? null : white > black ? "white" : "black";
+}
+function isDecided(state) {
+  const lead = leader(state);
+  if (!lead) return false;
+  return state.points[other(lead)] + state.pointsLeft < state.points[lead];
+}
+function duelPairs(state, max = 3) {
+  const whites = state.players.filter((p) => p.team === "white" && avg(p.recentSteps) > 0);
+  const blacks = state.players.filter((p) => p.team === "black" && avg(p.recentSteps) > 0);
+  const pairs = [];
+  for (const a of whites) for (const b of blacks) {
+    const x = avg(a.recentSteps), y = avg(b.recentSteps);
+    const gap = Math.abs(x - y) / Math.max(x, y);
+    if (gap <= DUEL_MAX_GAP) pairs.push({ a, b, gap });
+  }
+  pairs.sort((p, q) => p.gap - q.gap || p.a.id.localeCompare(q.a.id) || p.b.id.localeCompare(q.b.id));
+  const used = /* @__PURE__ */ new Set();
+  return pairs.filter((p) => used.has(p.a.id) || used.has(p.b.id) ? false : (used.add(p.a.id), used.add(p.b.id), true)).slice(0, max);
+}
+function eligibleDecrees(state) {
+  const out = [{ decree: { kind: "quiet" }, why: "No decree today: a plain battle." }];
+  const yesterday = state.history.find((h) => h.day === state.day - 1)?.decree.kind;
+  const comebacks = state.history.filter((h) => COMEBACK.includes(h.decree.kind)).length;
+  const allow = (kind) => kind !== yesterday && (!COMEBACK.includes(kind) || comebacks < MAX_COMEBACKS_PER_WEEK);
+  const lead = leader(state);
+  const gap = lead ? state.points[lead] - state.points[other(lead)] : 0;
+  const isFinal = state.day === state.daysInWeek;
+  if (allow("night_march")) {
+    for (const fromHour of NIGHT_MARCH_HOURS) {
+      out.push({ decree: { kind: "night_march", fromHour }, why: `Steps from ${fromHour}:00 count double for everyone.` });
+    }
+  }
+  if (allow("duel")) {
+    for (const { a, b } of duelPairs(state)) {
+      out.push({
+        decree: { kind: "duel", a: a.id, b: b.id, prize: DUEL_PRIZE },
+        why: `${a.name} (${Math.round(avg(a.recentSteps))} a day) vs ${b.name} (${Math.round(avg(b.recentSteps))} a day): closest match this week.`
+      });
+    }
+  }
+  if (allow("all_hands")) {
+    for (const minSteps of ALL_HANDS_MIN_STEPS) {
+      out.push({ decree: { kind: "all_hands", minSteps, prize: ALL_HANDS_PRIZE }, why: `A team where everyone walks ${minSteps}+ gets +${ALL_HANDS_PRIZE} soldiers.` });
+    }
+  }
+  if (allow("double_stakes") && state.day >= 3 && !isDecided(state)) {
+    out.push({ decree: { kind: "double_stakes", points: state.zoneToday.points * 2 }, why: `${state.zoneToday.name} is worth ${state.zoneToday.points * 2} points instead of ${state.zoneToday.points}.` });
+  }
+  if (lead && allow("reinforcements") && gap >= REINFORCEMENTS_MIN_GAP && !isFinal) {
+    const trailing = other(lead);
+    out.push({
+      decree: { kind: "reinforcements", team: trailing, percent: REINFORCEMENTS_PERCENT },
+      why: `${trailing} is ${gap} points behind: their soldiers count ${REINFORCEMENTS_PERCENT}% more today.`
+    });
+  }
+  if (lead && allow("rebellion") && isDecided(state)) {
+    for (const zone of state.held[lead]) {
+      out.push({ decree: { kind: "rebellion", zoneId: zone.id }, why: `${lead} has the week won. ${zone.name} revolts and is fought for again today.` });
+    }
+  }
+  return out;
+}
+function fallbackDecree(options, day) {
+  const first = (kind) => options.find((o) => o.decree.kind === kind)?.decree;
+  const nights = options.filter((o) => o.decree.kind === "night_march");
+  return first("rebellion") ?? first("reinforcements") ?? first("double_stakes") ?? first("duel") ?? nights[day % Math.max(1, nights.length)]?.decree ?? { kind: "quiet" };
+}
+var NIGHT_MARCH_HOURS, DUEL_PRIZE, DUEL_MAX_GAP, ALL_HANDS_MIN_STEPS, ALL_HANDS_PRIZE, REINFORCEMENTS_PERCENT, REINFORCEMENTS_MIN_GAP, MAX_COMEBACKS_PER_WEEK, COMEBACK, other, avg;
+var init_director = __esm({
+  "../../packages/engine/src/director.ts"() {
+    "use strict";
+    init_steps();
+    NIGHT_MARCH_HOURS = [19, 20, 21];
+    DUEL_PRIZE = 4;
+    DUEL_MAX_GAP = 0.35;
+    ALL_HANDS_MIN_STEPS = [4e3, 6e3];
+    ALL_HANDS_PRIZE = 4;
+    REINFORCEMENTS_PERCENT = 50;
+    REINFORCEMENTS_MIN_GAP = 2;
+    MAX_COMEBACKS_PER_WEEK = 2;
+    COMEBACK = ["reinforcements", "rebellion"];
+    other = (t) => t === "white" ? "black" : "white";
+    avg = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
+  }
+});
+
 // ../../packages/engine/src/index.ts
 var init_src2 = __esm({
   "../../packages/engine/src/index.ts"() {
@@ -1806,6 +1896,7 @@ var init_src2 = __esm({
     init_time();
     init_pieces();
     init_war();
+    init_director();
   }
 });
 
@@ -26738,10 +26829,10 @@ var require_PostgrestQueryBuilder = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var PostgrestFilterBuilder_1 = __importDefault(require_PostgrestFilterBuilder());
     var PostgrestQueryBuilder = class {
-      constructor(url, { headers = {}, schema, fetch: fetch2 }) {
+      constructor(url, { headers = {}, schema: schema2, fetch: fetch2 }) {
         this.url = url;
         this.headers = headers;
-        this.schema = schema;
+        this.schema = schema2;
         this.fetch = fetch2;
       }
       /**
@@ -27043,10 +27134,10 @@ var require_PostgrestClient = __commonJS({
        * @param options.schema - Postgres schema to switch to
        * @param options.fetch - Custom fetch
        */
-      constructor(url, { headers = {}, schema, fetch: fetch2 } = {}) {
+      constructor(url, { headers = {}, schema: schema2, fetch: fetch2 } = {}) {
         this.url = url;
         this.headers = Object.assign(Object.assign({}, constants_1.DEFAULT_HEADERS), headers);
-        this.schemaName = schema;
+        this.schemaName = schema2;
         this.fetch = fetch2;
       }
       /**
@@ -27069,10 +27160,10 @@ var require_PostgrestClient = __commonJS({
        *
        * @param schema - The schema to query
        */
-      schema(schema) {
+      schema(schema2) {
         return new _PostgrestClient(this.url, {
           headers: this.headers,
-          schema,
+          schema: schema2,
           fetch: this.fetch
         });
       }
@@ -27949,9 +28040,9 @@ var require_RealtimeChannel = __commonJS({
               const newPostgresBindings = [];
               for (let i = 0; i < bindingsLen; i++) {
                 const clientPostgresBinding = clientPostgresBindings[i];
-                const { filter: { event, schema, table, filter } } = clientPostgresBinding;
+                const { filter: { event, schema: schema2, table, filter } } = clientPostgresBinding;
                 const serverPostgresFilter = postgres_changes && postgres_changes[i];
-                if (serverPostgresFilter && serverPostgresFilter.event === event && serverPostgresFilter.schema === schema && serverPostgresFilter.table === table && serverPostgresFilter.filter === filter) {
+                if (serverPostgresFilter && serverPostgresFilter.event === event && serverPostgresFilter.schema === schema2 && serverPostgresFilter.table === table && serverPostgresFilter.filter === filter) {
                   newPostgresBindings.push(Object.assign(Object.assign({}, clientPostgresBinding), { id: serverPostgresFilter.id }));
                 } else {
                   this.unsubscribe();
@@ -28162,9 +28253,9 @@ var require_RealtimeChannel = __commonJS({
           }).map((bind) => {
             if (typeof handledPayload === "object" && "ids" in handledPayload) {
               const postgresChanges = handledPayload.data;
-              const { schema, table, commit_timestamp, type: type2, errors } = postgresChanges;
+              const { schema: schema2, table, commit_timestamp, type: type2, errors } = postgresChanges;
               const enrichedPayload = {
-                schema,
+                schema: schema2,
                 table,
                 commit_timestamp,
                 eventType: type2,
@@ -36977,8 +37068,8 @@ var require_SupabaseClient = __commonJS({
        *
        * @param schema - The schema to query
        */
-      schema(schema) {
-        return this.rest.schema(schema);
+      schema(schema2) {
+        return this.rest.schema(schema2);
       }
       // NOTE: signatures must be kept in sync with PostgrestClient.rpc
       /**
@@ -37229,6 +37320,11 @@ var init_repo = __esm({
         const { data, error } = await db().from("events").select("id, type, payload, created_at").eq("game_id", gameId).eq("type", "battle").order("created_at", { ascending: true });
         if (error) throw error;
         return data.map(toBattleRecord).filter((b) => b !== null);
+      },
+      async listEvents(gameId, type) {
+        const { data, error } = await db().from("events").select("id, payload, created_at").eq("game_id", gameId).eq("type", type).order("id");
+        if (error) throw error;
+        return data;
       }
     };
   }
@@ -39450,9 +39546,9 @@ var ZodArray = class _ZodArray extends ZodType {
     return this.min(1, message);
   }
 };
-ZodArray.create = (schema, params) => {
+ZodArray.create = (schema2, params) => {
   return new ZodArray({
-    type: schema,
+    type: schema2,
     minLength: null,
     maxLength: null,
     exactLength: null,
@@ -39460,30 +39556,30 @@ ZodArray.create = (schema, params) => {
     ...processCreateParams(params)
   });
 };
-function deepPartialify(schema) {
-  if (schema instanceof ZodObject) {
+function deepPartialify(schema2) {
+  if (schema2 instanceof ZodObject) {
     const newShape = {};
-    for (const key in schema.shape) {
-      const fieldSchema = schema.shape[key];
+    for (const key in schema2.shape) {
+      const fieldSchema = schema2.shape[key];
       newShape[key] = ZodOptional.create(deepPartialify(fieldSchema));
     }
     return new ZodObject({
-      ...schema._def,
+      ...schema2._def,
       shape: () => newShape
     });
-  } else if (schema instanceof ZodArray) {
+  } else if (schema2 instanceof ZodArray) {
     return new ZodArray({
-      ...schema._def,
-      type: deepPartialify(schema.element)
+      ...schema2._def,
+      type: deepPartialify(schema2.element)
     });
-  } else if (schema instanceof ZodOptional) {
-    return ZodOptional.create(deepPartialify(schema.unwrap()));
-  } else if (schema instanceof ZodNullable) {
-    return ZodNullable.create(deepPartialify(schema.unwrap()));
-  } else if (schema instanceof ZodTuple) {
-    return ZodTuple.create(schema.items.map((item) => deepPartialify(item)));
+  } else if (schema2 instanceof ZodOptional) {
+    return ZodOptional.create(deepPartialify(schema2.unwrap()));
+  } else if (schema2 instanceof ZodNullable) {
+    return ZodNullable.create(deepPartialify(schema2.unwrap()));
+  } else if (schema2 instanceof ZodTuple) {
+    return ZodTuple.create(schema2.items.map((item) => deepPartialify(item)));
   } else {
-    return schema;
+    return schema2;
   }
 }
 var ZodObject = class _ZodObject extends ZodType {
@@ -39699,8 +39795,8 @@ var ZodObject = class _ZodObject extends ZodType {
   //   }) as any;
   //   return merged;
   // }
-  setKey(key, schema) {
-    return this.augment({ [key]: schema });
+  setKey(key, schema2) {
+    return this.augment({ [key]: schema2 });
   }
   // merge<Incoming extends AnyZodObject>(
   //   merging: Incoming
@@ -40146,10 +40242,10 @@ var ZodTuple = class _ZodTuple extends ZodType {
       status.dirty();
     }
     const items = [...ctx.data].map((item, itemIndex) => {
-      const schema = this._def.items[itemIndex] || this._def.rest;
-      if (!schema)
+      const schema2 = this._def.items[itemIndex] || this._def.rest;
+      if (!schema2)
         return null;
-      return schema._parse(new ParseInputLazyPath(ctx, item, ctx.path, itemIndex));
+      return schema2._parse(new ParseInputLazyPath(ctx, item, ctx.path, itemIndex));
     }).filter((x) => !!x);
     if (ctx.common.async) {
       return Promise.all(items).then((results) => {
@@ -40683,9 +40779,9 @@ var ZodPromise = class extends ZodType {
     }));
   }
 };
-ZodPromise.create = (schema, params) => {
+ZodPromise.create = (schema2, params) => {
   return new ZodPromise({
-    type: schema,
+    type: schema2,
     typeName: ZodFirstPartyTypeKind.ZodPromise,
     ...processCreateParams(params)
   });
@@ -40810,17 +40906,17 @@ var ZodEffects = class extends ZodType {
     util.assertNever(effect);
   }
 };
-ZodEffects.create = (schema, effect, params) => {
+ZodEffects.create = (schema2, effect, params) => {
   return new ZodEffects({
-    schema,
+    schema: schema2,
     typeName: ZodFirstPartyTypeKind.ZodEffects,
     effect,
     ...processCreateParams(params)
   });
 };
-ZodEffects.createWithPreprocess = (preprocess, schema, params) => {
+ZodEffects.createWithPreprocess = (preprocess, schema2, params) => {
   return new ZodEffects({
-    schema,
+    schema: schema2,
     effect: { type: "preprocess", transform: preprocess },
     typeName: ZodFirstPartyTypeKind.ZodEffects,
     ...processCreateParams(params)
@@ -41424,6 +41520,130 @@ async function attack(repo, input, now, roll = serverRoll) {
   return { ok: true, data: { won: result.won, p: result.p, roll: r, to, attackersLeft: result.attackersLeft, defendersLeft: result.defendersLeft } };
 }
 
+// server/directorLive.ts
+init_src2();
+
+// server/director.ts
+init_sdk();
+init_src2();
+var nameOf = (state, id) => state.players.find((p) => p.id === id)?.name ?? id;
+function templateAnnouncement(decree, state, teamNames) {
+  const zone = state.zoneToday.name;
+  switch (decree.kind) {
+    case "night_march":
+      return { title: "Night March", story: `Every step after ${decree.fromHour}:00 counts double today. Save some legs for the evening: ${zone} is decided at midnight.` };
+    case "duel":
+      return { title: "Duel", story: `${nameOf(state, decree.a)} vs ${nameOf(state, decree.b)}: whoever walks more today wins ${decree.prize} soldiers for their team.` };
+    case "all_hands":
+      return { title: "All Hands", story: `A team where every single player walks ${decree.minSteps.toLocaleString("en")} steps today gets +${decree.prize} soldiers. Nobody gets left behind.` };
+    case "double_stakes":
+      return { title: "Double Stakes", story: `${zone} is worth ${decree.points} points today. This one can swing the week.` };
+    case "reinforcements":
+      return { title: "Reinforcements", story: `${teamNames[decree.team]} is behind, so reinforcements arrive: their soldiers count ${decree.percent}% more today.` };
+    case "rebellion": {
+      const held = [...state.held.white, ...state.held.black].find((z2) => z2.id === decree.zoneId)?.name ?? decree.zoneId;
+      const lead = leader(state);
+      return { title: "Rebellion", story: `${held} rises up against ${lead ? teamNames[lead] : "its rulers"}. It is fought for again today, next to ${zone}. The week is not over.` };
+    }
+    case "quiet":
+      return { title: "Calm Before the Storm", story: `No decree today. Just ${zone}, two armies and every step you take.` };
+  }
+}
+var DirectorOutput = z.object({ option: z.number().int(), title: z.string().min(1).max(40), story: z.string().min(1).max(400) });
+var DIRECTOR_SCHEMA = {
+  type: "object",
+  properties: { option: { type: "integer" }, title: { type: "string" }, story: { type: "string" } },
+  required: ["option", "title", "story"],
+  additionalProperties: false
+};
+var SYSTEM = `You are the Director of Invade, a week-long game where two teams of friends walk in real life. Each day both teams fight for one zone of the map with the soldiers their steps earned that day (5,000 steps = 4 soldiers, 10,000 = 8, 12,000 = 10). The team with the most zone points on Sunday night wins the week.
+
+Every morning you issue one decree for the day. Your goal: keep the week exciting and close until the final day, and get everyone walking, not only the fittest player.
+
+You receive the state of the week and a numbered list of the decrees the rules allow today, each with the reason it is allowed. Choose exactly one by its number. You cannot change a decree or invent one; only the list counts.
+
+How to choose:
+- If one team is running away with the week, prefer a comeback decree when it is offered.
+- If the week is close, prefer decrees that raise tension (double stakes late in the week, a duel between two well-matched players).
+- Prefer variety: avoid what was issued on recent days.
+- A quiet day is fine now and then, but not when something better fits.
+
+Then write the announcement everyone sees on their phone and on the big screen:
+- title: 1 to 3 words, like a headline.
+- story: 2 or 3 short sentences, dramatic and playful, in the tone of a war chronicle. Use the players' first names and the zone names given. State the decree's exact numbers. Never shame anyone. At most one emoji. Do not invent facts.`;
+var claudeDirector = async (state, options, teamNames) => {
+  const client2 = new Anthropic({ timeout: 2e4, maxRetries: 1 });
+  const response = await client2.messages.create({
+    model: "claude-opus-5-5",
+    max_tokens: 1024,
+    system: SYSTEM,
+    output_config: { effort: "low", format: { type: "json_schema", schema: DIRECTOR_SCHEMA } },
+    messages: [{
+      role: "user",
+      content: JSON.stringify({
+        teams: teamNames,
+        week: { day: state.day, of: state.daysInWeek, points: state.points, pointsLeft: state.pointsLeft },
+        zoneToday: state.zoneToday,
+        held: state.held,
+        players: state.players.map((p) => ({ id: p.id, name: p.name, team: p.team, stepsOnPreviousDays: p.recentSteps })),
+        recentDecrees: state.history.slice(-3),
+        options: options.map((o, i) => ({ number: i, decree: o.decree, why: o.why }))
+      })
+    }]
+  });
+  if (response.stop_reason === "refusal") throw new Error("director: model declined");
+  const text = response.content.find((b) => b.type === "text")?.text ?? "";
+  return DirectorOutput.parse(JSON.parse(text));
+};
+
+// server/directorLive.ts
+var LIVE_KINDS = ["quiet", "duel", "all_hands", "reinforcements"];
+async function directorStateFor(repo, game, now) {
+  const ctx = await loadWarContext(repo, game, now);
+  const held = { white: [], black: [] };
+  for (const t of DEFAULT_MAP.territories) held[ctx.war.owner[t.id] ?? t.team].push({ id: t.id, name: t.name });
+  const start = game.settings.seasonStart ?? ctx.today;
+  const day = Math.min(7, Math.max(1, Math.round((Date.parse(ctx.today) - Date.parse(start)) / 864e5) + 1));
+  const front = DEFAULT_MAP.territories.filter((t) => t.neighbors.some((n) => ctx.war.owner[n] !== ctx.war.owner[t.id]));
+  const zone = front[(day - 1) % Math.max(1, front.length)] ?? DEFAULT_MAP.territories[0];
+  const state = {
+    day,
+    daysInWeek: game.settings.campaignDays || 7,
+    points: { white: held.white.length, black: held.black.length },
+    pointsLeft: DEFAULT_MAP.territories.length,
+    zoneToday: { id: zone.id, name: zone.name, points: 1 },
+    held,
+    players: ctx.players.map((p) => ({ id: p.id, name: p.name, team: p.team, recentSteps: [] })),
+    history: []
+  };
+  return { state, today: ctx.today };
+}
+var schema = z.object({ code: z.string().trim().toUpperCase().min(1).max(20) });
+async function director(repo, input, now) {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid game code" };
+  const game = await repo.findGameByCode(parsed.data.code);
+  if (!game) return { ok: false, error: "No game with that code" };
+  const { state, today } = await directorStateFor(repo, game, now);
+  const stored = (await repo.listEvents?.(game.id, "decree"))?.find((e) => e.payload.date === today);
+  if (stored) return { ok: true, data: stored.payload };
+  const options = eligibleDecrees(state).filter((o) => LIVE_KINDS.includes(o.decree.kind));
+  let decree;
+  try {
+    if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error("no ANTHROPIC_API_KEY");
+    const out = await claudeDirector(state, options, game.settings.teamNames);
+    const picked = options[out.option];
+    if (!picked) throw new Error(`model picked option ${out.option} of ${options.length}`);
+    decree = { day: state.day, decree: picked.decree, title: out.title.trim(), story: out.story.trim(), writer: "claude" };
+  } catch (e) {
+    console.error(`[director] using the fallback: ${e instanceof Error ? e.message : String(e)}`);
+    const d = fallbackDecree(options, state.day);
+    decree = { day: state.day, decree: d, ...templateAnnouncement(d, state, game.settings.teamNames), writer: "template" };
+  }
+  await repo.insertEvent(game.id, "decree", { ...decree, date: today });
+  return { ok: true, data: decree };
+}
+
 // server/nudge.ts
 init_sdk();
 init_src2();
@@ -41471,7 +41691,7 @@ var NUDGE_SCHEMA = {
   required: ["nudges"],
   additionalProperties: false
 };
-var SYSTEM = `You write nudges for Invade, a game where friends in two teams walk in real life: every step today becomes soldiers their team uses tonight to take a shared map. Daily milestones: 5,000 steps = 4 soldiers, 10,000 = 8, 12,000 = 10 (the cap). When every member of a team reaches a milestone, the team earns a bonus.
+var SYSTEM2 = `You write nudges for Invade, a game where friends in two teams walk in real life: every step today becomes soldiers their team uses tonight to take a shared map. Daily milestones: 5,000 steps = 4 soldiers, 10,000 = 8, 12,000 = 10 (the cap). When every member of a team reaches a milestone, the team earns a bonus.
 
 You receive facts about teammates who still have a milestone to reach today. For each one, write ONE message the sender will send them (WhatsApp, iMessage): warm, playful, a little competitive, never shaming. Address the player by first name. Use the exact numbers given (steps to go, soldiers gained). Mention the team bonus only when unlocksBonus is true. If steps is 0, they have not synced or walked yet: say so lightly. Max 22 words. At most one emoji. Do not invent facts.`;
 var claudeWriter = async (facts, teamName, senderName) => {
@@ -41479,7 +41699,7 @@ var claudeWriter = async (facts, teamName, senderName) => {
   const response = await client2.messages.create({
     model: "claude-opus-5-5",
     max_tokens: 1024,
-    system: SYSTEM,
+    system: SYSTEM2,
     output_config: { effort: "low", format: { type: "json_schema", schema: NUDGE_SCHEMA } },
     messages: [
       {
@@ -41567,13 +41787,13 @@ function templateText(o) {
 var MAX_CHARS = 140;
 var Output = z.object({ text: z.string().min(1) });
 var OUTPUT_SCHEMA = { type: "object", properties: { text: { type: "string" } }, required: ["text"], additionalProperties: false };
-var SYSTEM2 = `You are the General of a team in Invade, a game where friends walk in real life to earn soldiers and fight over a shared map of Barcelona neighbourhoods at night. You receive ONE order the game already decided, with its exact numbers. Rewrite it as one or two short lines in a war-commander's voice: punchy, confident, a little dry, addressing the player by first name. Keep every number exactly as given; never add numbers, places or promises. At most 140 characters in total. No emojis.`;
+var SYSTEM3 = `You are the General of a team in Invade, a game where friends walk in real life to earn soldiers and fight over a shared map of Barcelona neighbourhoods at night. You receive ONE order the game already decided, with its exact numbers. Rewrite it as one or two short lines in a war-commander's voice: punchy, confident, a little dry, addressing the player by first name. Keep every number exactly as given; never add numbers, places or promises. At most 140 characters in total. No emojis.`;
 var claudeWriter2 = async (order) => {
   const client2 = new Anthropic({ timeout: 4e3, maxRetries: 0 });
   const response = await client2.messages.create({
     model: "claude-opus-5-5",
     max_tokens: 200,
-    system: SYSTEM2,
+    system: SYSTEM3,
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [{ role: "user", content: JSON.stringify(order) }]
   });
@@ -41663,7 +41883,8 @@ var ROUTES = {
   "POST /api/steps": (repo, body) => submitSteps(repo, body, /* @__PURE__ */ new Date()),
   "POST /api/nudge": (repo, body) => nudge(repo, body, /* @__PURE__ */ new Date()),
   "POST /api/general": (repo, body) => general(repo, body, /* @__PURE__ */ new Date()),
-  "POST /api/attack": (repo, body) => attack(repo, body, /* @__PURE__ */ new Date())
+  "POST /api/attack": (repo, body) => attack(repo, body, /* @__PURE__ */ new Date()),
+  "POST /api/director": (repo, body) => director(repo, body, /* @__PURE__ */ new Date())
 };
 async function health() {
   const url = process.env.SUPABASE_URL?.trim() ?? "";

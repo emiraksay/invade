@@ -2,6 +2,7 @@
 import type { ApiResult } from '@invade/engine';
 import { join, me, submitSteps, type Repo } from './handlers';
 import { attack } from './war';
+import { director } from './directorLive';
 import { nudge } from './nudge';
 import { general } from './general';
 
@@ -14,6 +15,7 @@ const ROUTES: Record<string, Handler> = {
   'POST /api/nudge': (repo, body) => nudge(repo, body, new Date()),
   'POST /api/general': (repo, body) => general(repo, body, new Date()),
   'POST /api/attack': (repo, body) => attack(repo, body, new Date()),
+  'POST /api/director': (repo, body) => director(repo, body, new Date()),
 };
 
 /** GET /api/health: non-secret diagnostics (never prints keys). */

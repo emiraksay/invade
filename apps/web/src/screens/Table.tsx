@@ -4,6 +4,7 @@ import { TeamGeneral } from '../components/GeneralOrders';
 import { describeEvent, type MilestoneEvent } from '../data/events';
 import { Countdown } from '../components/Countdown';
 import { SeasonBar } from '../components/SeasonBar';
+import { DecreeBanner } from '../components/DecreeBanner';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { useGameByCode } from '../data/useGameByCode';
@@ -87,6 +88,7 @@ export function TableView({ teams, settings, live, code, players = [], events = 
         <p className="display" style={{ margin: 0, fontSize: 44, letterSpacing: '0.04em' }}>INVADE</p>
         <Countdown timezone={settings.timezone} size={26} />
         <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} seasonStart={settings.seasonStart} big />
+        <DecreeBanner code={code} big />
       </header>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(420px, 1.4fr) minmax(260px, 1fr)', gap: 32, alignItems: 'start' }}>
         <div style={{ display: 'grid', gap: 14 }}>

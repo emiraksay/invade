@@ -37,6 +37,8 @@ export interface Repo {
   listStepReports(gameId: string, day: string): Promise<StepReport[]>;
   /** Every battle of the game, oldest first (the war is replayed from them). */
   listBattles(gameId: string): Promise<BattleRecord[]>;
+  /** Stored events of one type, oldest first (optional: test repos may omit it). */
+  listEvents?(gameId: string, type: string): Promise<{ id: number; payload: unknown; created_at: string }[]>;
 }
 
 const fail = (error: string): ApiResult<never> => ({ ok: false, error });
