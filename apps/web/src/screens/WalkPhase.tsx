@@ -8,6 +8,7 @@ import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
+import { DemoSync } from '../components/DemoSync';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { LogBar } from '../components/LogBar';
 import type { MilestoneEvent } from '../data/events';
@@ -97,6 +98,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
             <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }} href={SYNC_SHORTCUT_URL}>
               Sync from Apple Health
             </a>
+            <DemoSync token={session.token} steps={me.steps} />
             <p className="subtitle" aria-live="polite">{live ? '● Live' : '○ Reconnecting…'}</p>
           </section>
         </div>
