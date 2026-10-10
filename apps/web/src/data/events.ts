@@ -1,4 +1,4 @@
-import type { Player, TeamId } from '@invade/engine';
+import type { BattleRecord, MapDef, Player, TeamId } from '@invade/engine';
 
 /** A milestone crossed today: written by POST /api/steps (server/handlers.ts), read live by the screens. */
 export interface MilestoneEvent {
@@ -30,35 +30,6 @@ export function describeEvent(ev: MilestoneEvent, players: readonly Player[], ti
   return { time: time(ev.at, timezone), name, steps: fmt.format(ev.steps), gained: `+${ev.gained}` };
 }
 
-/**
- * A battle result (type 'battle'), written by the night-phase engine once it ships. Parsed tolerantly:
- * the fields below are what the spotlight needs; anything else in the payload is ignored.
- */
-export interface BattleEvent {
-  id: number;
-  at: string;
-  /** The attacking team. */
-  team: TeamId;
-  territory: string;
-  captured: boolean;
-  odds?: number;
-  attackerId?: string;
-}
-
-export function toBattleEvent(row: { id: number; type: string; payload: unknown; created_at: string }): BattleEvent | null {
-  if (row.type !== 'battle' || !row.payload || typeof row.payload !== 'object') return null;
-  const p = row.payload as Record<string, unknown>;
-  if (p.team !== 'white' && p.team !== 'black') return null;
-  const territory = typeof p.territory === 'string' ? p.territory : typeof p.territoryName === 'string' ? p.territoryName : null;
-  if (!territory) return null;
-  return {
-    id: row.id, at: row.created_at, team: p.team, territory,
-    captured: p.captured === true || p.won === true,
-    odds: typeof p.odds === 'number' ? p.odds : undefined,
-    attackerId: typeof p.attackerId === 'string' ? p.attackerId : typeof p.playerId === 'string' ? p.playerId : undefined,
-  };
-}
-
 /** What the big screen shouts when an event lands: headline, sub-line, team colour. */
 export interface Spotlight {
   id: number;
@@ -67,11 +38,26 @@ export interface Spotlight {
   sub: string;
 }
 
-export function spotlightFor(ev: MilestoneEvent | BattleEvent, players: readonly Player[], teamNames: Record<TeamId, string>): Spotlight {
-  if ('captured' in ev) {
-    const who = ev.attackerId ? players.find((p) => p.id === ev.attackerId)?.name : undefined;
-    const pct = ev.odds !== undefined ? ` · ${Math.round(ev.odds * 100)}% odds` : '';
-    return ev.captured
+/** A battle (engine BattleRecord) with the territory name resolved, ready for the spotlight. */
+export interface BattleShout {
+  id: number;
+  at: string;
+  team: TeamId;
+  territory: string;
+  won: boolean;
+  p: number;
+  playerId: string;
+}
+
+export function battleShout(b: BattleRecord, map: MapDef): BattleShout {
+  return { id: b.id, at: b.at, team: b.team, territory: map.territories.find((t) => t.id === b.to)?.name ?? b.to, won: b.won, p: b.p, playerId: b.playerId };
+}
+
+export function spotlightFor(ev: MilestoneEvent | BattleShout, players: readonly Player[], teamNames: Record<TeamId, string>): Spotlight {
+  if ('won' in ev) {
+    const who = players.find((p) => p.id === ev.playerId)?.name;
+    const pct = ` · ${Math.round(ev.p * 100)}% odds`;
+    return ev.won
       ? { id: ev.id, team: ev.team, headline: `${teamNames[ev.team]} captures ${ev.territory}`.toUpperCase(), sub: `${who ? `${who} led the attack` : 'Attack'}${pct}` }
       : { id: ev.id, team: ev.team, headline: `${ev.territory} holds`.toUpperCase(), sub: `${teamNames[ev.team]}${who ? ` (${who})` : ''} attacked and failed${pct}` };
   }

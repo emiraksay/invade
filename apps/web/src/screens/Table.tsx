@@ -91,7 +91,7 @@ export function TableView({ teams, settings, live, code, players = [], events = 
         </div>
         <TeamColumn team={teams.black} name={settings.teamNames.black} align="right" />
       </div>
-      <Spotlight events={events} players={players} teamNames={settings.teamNames} />
+      <Spotlight events={events} battles={battles} players={players} teamNames={settings.teamNames} />
       <footer style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }} className="muted">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <JoinQr url={joinUrl} />

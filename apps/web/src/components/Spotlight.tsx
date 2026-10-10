@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Player, TeamId } from '@invade/engine';
-import { spotlightFor, type BattleEvent, type MilestoneEvent, type Spotlight as SpotlightItem } from '../data/events';
+import { DEFAULT_MAP, type BattleRecord, type Player, type TeamId } from '@invade/engine';
+import { battleShout, spotlightFor, type MilestoneEvent, type Spotlight as SpotlightItem } from '../data/events';
 
 const SHOW_MS = 4000;
 const FADE_MS = 500;
@@ -10,26 +10,33 @@ const FADE_MS = 500;
  * for ~4 s, headline ≥ 48 px, in the team's colour, then fade. Overlapping events queue one after another.
  * pointer-events: none, so it never blocks the map. Reduced motion: no fade, still shown for 4 s.
  */
-export function Spotlight({ events, players, teamNames }: {
-  /** Newest first. */
-  events: readonly (MilestoneEvent | BattleEvent)[];
+export function Spotlight({ events, battles = [], players, teamNames }: {
+  /** Milestone events, newest first. */
+  events: readonly MilestoneEvent[];
+  /** Battles, oldest first (as useGameDay returns them). */
+  battles?: readonly BattleRecord[];
   players: readonly Player[];
   teamNames: Record<TeamId, string>;
 }) {
-  const seen = useRef<number | null>(null); // highest event id already on screen when we mounted / shown since
+  // Both kinds live in the same events table, so one id space: the highest id seen is enough.
+  const seen = useRef<number | null>(null);
   const [queue, setQueue] = useState<SpotlightItem[]>([]);
   const [current, setCurrent] = useState<SpotlightItem | null>(null);
   const [fading, setFading] = useState(false);
 
   // New events -> queue (oldest first so the order on stage is the order they happened).
-  const newestId = events[0]?.id ?? 0;
+  const newestId = Math.max(events[0]?.id ?? 0, battles[battles.length - 1]?.id ?? 0);
   useEffect(() => {
     if (seen.current === null) { seen.current = newestId; return; } // first render: nothing to replay
-    const fresh = events.filter((e) => e.id > (seen.current ?? 0)).sort((a, b) => a.id - b.id);
+    const since = seen.current;
+    const fresh = [
+      ...events.filter((e) => e.id > since).map((e) => spotlightFor(e, players, teamNames)),
+      ...battles.filter((b) => b.id > since).map((b) => spotlightFor(battleShout(b, DEFAULT_MAP), players, teamNames)),
+    ].sort((a, b) => a.id - b.id);
     if (fresh.length === 0) return;
     seen.current = newestId;
-    setQueue((q) => [...q, ...fresh.map((e) => spotlightFor(e, players, teamNames))]);
-  }, [newestId, events, players, teamNames]);
+    setQueue((q) => [...q, ...fresh]);
+  }, [newestId, events, battles, players, teamNames]);
 
   // Show the queue one item at a time.
   useEffect(() => {
