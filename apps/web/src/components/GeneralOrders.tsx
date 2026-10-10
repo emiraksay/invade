@@ -71,3 +71,24 @@ export function TeamGeneral({ code, team, name, refreshKey, preload }: { code: s
     </p>
   );
 }
+
+/** One-line General's order on the map page itself, so the AI is visible without opening the list. Tap → the full orders. */
+export function GeneralStrip({ token, refreshKey, preload, onOpen }: { token: string; refreshKey: string; preload?: GeneralResponse; onOpen: () => void }) {
+  const [state] = useGeneral(() => api.general(token), refreshKey, preload);
+  if (state.status !== 'ready') return null;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`General's orders: ${state.data.text}`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', border: '1px solid rgba(255,255,255,0.25)',
+        borderRadius: 'var(--radius-item)', background: 'rgba(255,255,255,0.06)', color: 'inherit', textAlign: 'left', cursor: 'pointer',
+      }}
+    >
+      <img src={helmet} alt="" height={16} />
+      <span className="display" style={{ fontSize: 12, flex: 'none' }}>General</span>
+      <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{state.data.text}</span>
+    </button>
+  );
+}

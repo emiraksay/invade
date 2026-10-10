@@ -8,7 +8,7 @@ import { NavBar, type Tab } from '../components/NavBar';
 import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
-import { GeneralOrders } from '../components/GeneralOrders';
+import { GeneralOrders, GeneralStrip } from '../components/GeneralOrders';
 import { SeasonBar } from '../components/SeasonBar';
 import { DecreeBanner } from '../components/DecreeBanner';
 import { HowToPlay, useFirstVisitHowTo } from '../components/HowToPlay';
@@ -117,6 +117,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           <Countdown timezone={settings.timezone} />
           <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} seasonStart={settings.seasonStart} />
           <StatsBar stats={stats} />
+          <GeneralStrip token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}:${battles.length}`} preload={generalPreload} onOpen={() => setListOpen(true)} />
           <div className="walk-map">
             <Battlefield
               view={view}
