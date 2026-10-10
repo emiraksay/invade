@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import type { PieceView } from './model';
 
 /**
@@ -36,10 +36,11 @@ export function usePop(value: number): number {
  * player's initial and a ring in the player's own colour, a white soldier badge bottom-right (Figma NumberCircle), the name underneath.
  * My own piece gets a thicker ring glowing in that colour. The badge pops when the soldiers go up.
  */
-export function PieceToken({ piece, color }: { piece: PieceView; color: string }) {
+export function PieceToken({ piece, color, onTap }: { piece: PieceView; color: string; onTap?: (p: PieceView) => void }) {
   const pop = usePop(piece.soldiers);
+  const tap = onTap ? { role: 'button', tabIndex: 0, onClick: () => onTap(piece), onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(piece); } } } : {};
   return (
-    <div className={`piece piece-${piece.team}${piece.isMe ? ' piece-me' : ''}`} style={{ '--ring': color } as CSSProperties} aria-label={`${piece.name}, ${piece.soldiers} soldiers${piece.isMe ? ' (you)' : ''}`}>
+    <div {...tap} className={`piece piece-${piece.team}${piece.isMe ? ' piece-me' : ''}${onTap ? ' piece-tappable' : ''}`} style={{ '--ring': color } as CSSProperties} aria-label={`${piece.name}, ${piece.soldiers} soldiers${piece.isMe ? ' (you)' : ''}`}>
       <div className="piece-disc">
         {piece.name.trim().charAt(0).toUpperCase() || '?'}
         <span key={pop} className={`piece-badge${pop ? ' piece-pop' : ''}`}>{piece.soldiers}</span>
@@ -52,4 +53,28 @@ export function PieceToken({ piece, color }: { piece: PieceView; color: string }
 /** Soldiers garrisoned on a territory (Figma map numbers): a small white circle with a black number. */
 export function GarrisonBadge({ soldiers }: { soldiers: number }) {
   return <span className="garrison" aria-label={`${soldiers} soldiers garrisoned`}>{soldiers}</span>;
+}
+
+/**
+ * How a territory looks while I'm choosing what to attack: the ones I can attack light up red,
+ * the rest dim (except where my piece stands). Undefined when I'm not choosing.
+ */
+export type AttackMark = 'target' | 'dim' | undefined;
+export const ATTACK_RED = '#ff2424';
+
+export function attackMark(territoryId: string, targets: ReadonlySet<string> | null | undefined, myTerritory: string | undefined): AttackMark {
+  if (!targets) return undefined;
+  if (targets.has(territoryId)) return 'target';
+  return territoryId === myTerritory ? undefined : 'dim';
+}
+
+/** Counts up each time a territory changes hands, so it can replay its flip flash. */
+export function useFlip(owner: string): number {
+  const [flip, setFlip] = useState(0);
+  const prev = useRef(owner);
+  useEffect(() => {
+    if (owner !== prev.current) setFlip((f) => f + 1);
+    prev.current = owner;
+  }, [owner]);
+  return flip;
 }

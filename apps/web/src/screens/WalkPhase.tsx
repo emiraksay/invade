@@ -1,5 +1,5 @@
-import type { BattleRecord } from '@invade/engine';
-import { useEffect, useState } from 'react';
+import { attackOptions, type AttackOption, type BattleRecord } from '@invade/engine';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
@@ -10,6 +10,7 @@ import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
 import { DemoSync } from '../components/DemoSync';
+import { AttackSheet } from '../components/AttackSheet';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { LogBar } from '../components/LogBar';
 import type { MilestoneEvent } from '../data/events';
@@ -43,6 +44,9 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const [tab, setTab] = useState<Tab>('map');
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
+  // Attack: tap my piece -> attackable territories light up -> tap one -> the sheet.
+  const [aiming, setAiming] = useState(false);
+  const [target, setTarget] = useState<AttackOption | null>(null);
 
   useEffect(() => {
     if (!listOpen) return;
@@ -57,6 +61,25 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const me = myTeam.members.find((m) => m.player.id === session.player.id) ?? summarizePlayerDay(session.player, 0);
   const view = walkPhaseMapView(DEFAULT_MAP, teams, { myId: session.player.id, battles, today: day });
   const territories = view.teams[mine].territories;
+  const options = useMemo(() => (aiming ? attackOptions(view.war, DEFAULT_MAP, session.player.id) : []), [aiming, view.war, session.player.id]);
+  const targets = useMemo(() => (aiming ? new Set(options.map((o) => o.to)) : null), [aiming, options]);
+  const myPiece = view.pieces.find((p) => p.isMe);
+  const onTerritory = (t: TerritoryView) => {
+    if (aiming) {
+      const option = options.find((o) => o.to === t.id);
+      if (option) setTarget(option);
+      else setAiming(false);
+      return;
+    }
+    setPicked((p) => (p?.id === t.id ? null : t));
+  };
+  const hint = aiming
+    ? !myPiece || myPiece.soldiers <= 0
+      ? 'No soldiers yet: walk to 5,000 steps to earn some'
+      : options.length ? 'Tap a red territory to attack' : 'No enemy next to you'
+    : picked
+      ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === mine ? ' · your side' : ''}`
+      : myPiece ? 'Tap your piece to attack' : '';
   const stats = { teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories };
 
   return (
@@ -66,11 +89,15 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           <Countdown timezone={settings.timezone} />
           <StatsBar stats={stats} />
           <div className="walk-map">
-            <Battlefield view={view} selected={picked?.id} onTap={(t) => setPicked((p) => (p?.id === t.id ? null : t))} />
+            <Battlefield
+              view={view}
+              selected={aiming ? null : picked?.id}
+              onTap={onTerritory}
+              targets={targets}
+              onPieceTap={() => { setPicked(null); setAiming((a) => !a); }}
+            />
             <p className="subtitle walk-picked" aria-live="polite">
-              {picked
-                ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === mine ? ' · your side' : ''}`
-                : live ? '' : '○ Reconnecting…'}
+              {live ? hint : '○ Reconnecting…'}
             </p>
           </div>
           <button type="button" className="open-list" onClick={() => setListOpen(true)} aria-haspopup="dialog">
@@ -89,6 +116,15 @@ export function WalkView({ session, teams, settings, live, players = [], events 
       {tab === 'settings' && <div className="walk-scroll"><SettingsPanel /></div>}
       <NavBar tab={tab} onTab={(t) => { setTab(t); setListOpen(false); }} />
 
+      {target && (
+        <AttackSheet
+          key={target.to}
+          token={session.token}
+          option={target}
+          enemyName={settings.teamNames[other]}
+          onClose={() => { setTarget(null); setAiming(false); }}
+        />
+      )}
       {listOpen && (
         <div className="sheet-backdrop" onClick={() => setListOpen(false)}>
           <section className="sheet" role="dialog" aria-modal="true" aria-label="Today" onClick={(e) => e.stopPropagation()}>
