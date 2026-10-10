@@ -19,10 +19,12 @@ const MAP_YAW = -0.14;         // radians: the Figma's map sits slightly diagona
 const HQ_LIFT_PER_SOLDIER = 0.25;
 const HQ_LIFT_MAX = 12;
 
+// Figma render: White's slabs are near-white, Black's near-black; both carry a bright white rim.
 const COLOR: Record<TeamId, { dim: string; lit: string }> = {
-  white: { dim: '#7d7b76', lit: '#eef1f6' },
-  black: { dim: '#141110', lit: '#3b3532' },
+  white: { dim: '#cfd2d8', lit: '#ffffff' },
+  black: { dim: '#0c0a09', lit: '#262220' },
 };
+const SIDE_COLOR: Record<TeamId, string> = { white: '#d6dae2', black: '#2a2522' };
 const LABEL: Record<TeamId, string> = { white: '#121215', black: '#f2efe6' };
 
 const RIPPLE_MS = 1100;          // how long one tile glows after soldiers arrive
@@ -45,7 +47,7 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
   const poly = useMemo(() => insetPolygon(t.polygon, t.center, SLAB_GAP), [t.polygon, t.center]);
   const geometry = useMemo(() => {
     const shape = new THREE.Shape(poly.map(([x, y]) => new THREE.Vector2(x, y)));
-    const g = new THREE.ExtrudeGeometry(shape, { depth: PILLAR_DEPTH, bevelEnabled: false });
+    const g = new THREE.ExtrudeGeometry(shape, { depth: PILLAR_DEPTH, steps: 16, bevelEnabled: false } /* steps: rows of vertices so the side fade has a curve */);
     // Shape lies in XY with Y down (map units). Lay it on the ground: map y -> world z, extrude -> down.
     g.rotateX(Math.PI / 2);
     // Fade the pillar into the dark: vertex colour goes from white at the top face to black at the bottom.
@@ -53,14 +55,13 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
     const colors = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const depth = Math.min(1, Math.max(0, -pos.getY(i) / PILLAR_DEPTH)); // clamp: the top face sits at y ≈ +1e-16
-      const v = 1 - Math.pow(depth, 0.38);
+      const v = Math.pow(1 - depth, 4); // bright lip under the top face, then quickly into the dark
       colors[i * 3] = v; colors[i * 3 + 1] = v; colors[i * 3 + 2] = v;
     }
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     return g;
   }, [poly]);
-  const edges = useMemo(() => new THREE.EdgesGeometry(geometry, 15), [geometry]);
-  useEffect(() => () => { edges.dispose(); geometry.dispose(); }, [edges, geometry]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
   useEffect(() => invalidate(), [lift, invalidate]); // start easing toward the new height
@@ -85,7 +86,7 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
   });
 
   const top = new THREE.Color(COLOR[t.owner].dim).lerp(new THREE.Color(COLOR[t.owner].lit), t.charge);
-  const edgeOpacity = selected ? 1 : 0.45 + 0.55 * t.charge;
+  const edgeOpacity = selected ? 1 : 0.75 + 0.25 * t.charge;
   const [cx, cy] = t.center;
   // Top outline in world space (map y -> world z), closed, lifted a hair above the face to avoid z-fighting.
   const outline = useMemo<[number, number, number][]>(
@@ -101,23 +102,23 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
         onPointerOver={onTap ? () => { document.body.style.cursor = 'pointer'; } : undefined}
         onPointerOut={onTap ? () => { document.body.style.cursor = ''; } : undefined}
       >
+        {/* ExtrudeGeometry groups: 0 = top/bottom faces, 1 = sides. The glow sits on the top face only,
+            so the sides keep their vertex-colour fade into the dark (emissive would light them evenly). */}
         <meshStandardMaterial
+          attach="material-0"
           ref={material}
-          vertexColors
           color={top}
           roughness={t.owner === 'white' ? 0.35 : 0.8}
           metalness={0.05}
           emissive={selected ? '#7fb6ff' : t.owner === 'white' ? '#ffffff' : '#8a8580'}
           emissiveIntensity={baseEmissive}
         />
+        <meshStandardMaterial attach="material-1" vertexColors color={SIDE_COLOR[t.owner]} roughness={0.6} metalness={0} />
       </mesh>
-      <lineSegments geometry={edges}>
-        <lineBasicMaterial color={selected ? '#7fb6ff' : '#ffffff'} transparent opacity={edgeOpacity * 0.6} />
-      </lineSegments>
       {/* Glowing rim: a wide faint pass under a crisp bright one (the Figma's white edge glow). */}
-      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={9} transparent opacity={0.03 + 0.12 * t.charge} depthWrite={false} />
-      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={5} transparent opacity={0.12 + 0.3 * t.charge} depthWrite={false} />
-      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={1.6} transparent opacity={edgeOpacity} depthWrite={false} />
+      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={10} transparent opacity={0.08 + 0.14 * t.charge} depthWrite={false} />
+      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={5} transparent opacity={0.25 + 0.3 * t.charge} depthWrite={false} />
+      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={2} transparent opacity={edgeOpacity} depthWrite={false} />
       {t.isHq && (
         <Html position={[cx, 1.5, cy]} center distanceFactor={120} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div style={{ textAlign: 'center', color: LABEL[t.owner], fontFamily: 'var(--font-body)', fontWeight: 700, lineHeight: 1, textShadow: t.owner === 'white' ? '0 0 6px #fff' : '0 0 6px #000' }}>
@@ -127,6 +128,44 @@ function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSo
         </Html>
       )}
     </group>
+  );
+}
+
+/** Soft radial glow texture (white centre fading out), drawn once. */
+function glowTexture(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.45)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+/**
+ * The Figma's glow under the island: light spilling out from beneath the slabs.
+ * Two additive layers just under the tiles' top faces, so it only shows around the coast and in the cracks,
+ * and brightens a little as both teams fill up.
+ */
+function IslandGlow({ w, h, charge }: { w: number; h: number; charge: number }) {
+  const texture = useMemo(glowTexture, []);
+  useEffect(() => () => texture.dispose(), [texture]);
+  const layers = [
+    { y: -3, scale: 1.15, opacity: 0.35 + 0.25 * charge, color: '#ffffff' },
+    { y: -PILLAR_DEPTH * 0.35, scale: 1.2, opacity: 0.28 + 0.15 * charge, color: '#bcd6ff' },
+  ];
+  return (
+    <>
+      {layers.map((l) => (
+        <mesh key={l.y} position={[0, l.y, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[w * l.scale, h * l.scale]} />
+          <meshBasicMaterial map={texture} color={l.color} transparent opacity={l.opacity} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        </mesh>
+      ))}
+    </>
   );
 }
 
@@ -176,7 +215,14 @@ export interface Map3DProps {
 export default function Map3D({ view, selected = null, onTap, onReady, onContextDead, bloom = false }: Map3DProps) {
   const { width: w, height: h } = view;
   return (
-    <div style={{ width: '100%', aspectRatio: '1 / 1.22', margin: '-6% 0 -8%' }}>
+    <div
+      style={{
+        width: '100%', aspectRatio: '1 / 1.22', margin: '-6% 0 -8%',
+        // The pillars run off the bottom of the canvas: fade them out instead of a hard cut.
+        maskImage: 'linear-gradient(to bottom, #000 72%, transparent 98%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, #000 72%, transparent 98%)',
+      }}
+    >
       <Canvas
         dpr={[1, 2]}
         camera={{ fov: 38, near: 1, far: 1000 }}
@@ -199,11 +245,12 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
         <CameraRig h={h} />
         <FirstFrame onReady={onReady} />
         <fog attach="fog" args={['#110d0b', h * 1.6, h * 3]} />
-        <hemisphereLight args={['#ffffff', '#1a1512', 0.5]} />
+        <hemisphereLight args={['#ffffff', '#1a1512', 1.1]} />
         <directionalLight position={[-40, 120, 80]} intensity={1.1} />
         <pointLight position={[0, -PILLAR_DEPTH * 0.6, 0]} intensity={2.5} distance={220} decay={1} color="#9ec7ff" />
         {/* Centre the map on the origin: x in [-w/2, w/2], z in [-h/2, h/2] (Black far, White near). */}
         <group rotation={[0, MAP_YAW, 0]}>
+        <IslandGlow w={w} h={h} charge={(view.teams.white.charge + view.teams.black.charge) / 2} />
         <group position={[-w / 2, 0, -h / 2]}>
           {view.territories.map((t) => (
             <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} />
