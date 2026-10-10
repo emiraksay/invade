@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { DEFAULT_MAP, summarizeTeamDay, type GameSettings, type Player, type StepReport, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, summarizeTeamDay, warState, type BattleRecord, type GameSettings, type Player, type StepReport, type TeamId } from '@invade/engine';
+import { NightRevealView } from './NightReveal';
+import { nightReveal } from '../data/night';
 import { TableView } from './Table';
 import { WalkView } from './WalkPhase';
 import type { MilestoneEvent } from '../data/events';
@@ -113,4 +115,32 @@ export function WalkPreview() {
     ],
   };
   return <WalkView session={session} teams={teams} settings={FAKE_SETTINGS} live players={FAKE_PLAYERS} events={FAKE_EVENTS} nudgePreload={nudgePreload} generalPreload={FAKE_GENERAL.white} />;
+}
+
+
+/** Dev only (`/preview/night`): the night reveal with three fake battles on the real map. */
+export function NightPreview() {
+  const day = '2026-10-10';
+  const reports: StepReport[] = FAKE_PLAYERS.map((p) => ({ playerId: p.id, day, steps: FAKE_STEPS[p.id] ?? 0, source: 'demo', reportedAt: day }));
+  const teams = { white: summarizeTeamDay('white', FAKE_PLAYERS, reports, day), black: summarizeTeamDay('black', FAKE_PLAYERS, reports, day) };
+  const war0 = warState(DEFAULT_MAP, FAKE_PLAYERS, {}, [], day);
+  const front = (team: TeamId) => {
+    for (const t of DEFAULT_MAP.territories) {
+      if (war0.owner[t.id] !== team) continue;
+      const enemy = t.neighbors.find((n) => war0.owner[n] !== team);
+      if (enemy) return { from: t.id, to: enemy };
+    }
+    return { from: DEFAULT_MAP.territories[0]!.id, to: DEFAULT_MAP.territories[1]!.id };
+  };
+  const w = front('white'), b = front('black');
+  const at = (h: number) => `${day}T${String(h).padStart(2, '0')}:00:00Z`;
+  const battles: BattleRecord[] = [
+    { id: 1, day, playerId: 'w1', team: 'white', from: w.from, to: w.to, attackers: 8, defenders: 2, p: 0.8, roll: 0.3, won: true, attackersLeft: 8, defendersLeft: 0, at: at(11) },
+    { id: 2, day, playerId: 'b1', team: 'black', from: b.from, to: b.to, attackers: 4, defenders: 6, p: 0.4, roll: 0.7, won: false, attackersLeft: 0, defendersLeft: 6, at: at(13) },
+    { id: 3, day, playerId: 'w2', team: 'white', from: w.from, to: w.to, attackers: 4, defenders: 2, p: 0.67, roll: 0.2, won: true, attackersLeft: 4, defendersLeft: 0, at: at(15) },
+  ];
+  const settings = { teamNames: { white: 'White', black: 'Black' } as Record<TeamId, string>, timezone: 'Europe/Madrid', seasonStart: '2026-10-09' };
+  const reveal = nightReveal({ battles, players: FAKE_PLAYERS, teams, settings, day });
+  const view = walkPhaseMapView(DEFAULT_MAP, teams, { myId: 'w1', battles, today: day });
+  return <NightRevealView reveal={reveal} view={view} settings={settings} code="DEMO" onDone={() => history.back()} />;
 }
