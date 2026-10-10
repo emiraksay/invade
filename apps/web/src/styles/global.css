@@ -111,3 +111,72 @@ button, input { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Walk screen (Figma Base + LOG): full-height column, the map takes whatever is left. */
+.walk {
+  height: 100dvh; min-height: 0; overflow: hidden; gap: 12px;
+  /* room for the floating navbar (49px + 12px from the bottom) */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px + var(--size-navbar-h) + 12px);
+}
+/* The map fills what is left and is clipped there, so the screen never grows past the phone. */
+.walk-map { flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.walk-picked { position: absolute; left: 0; right: 0; bottom: 0; min-height: 18px; }
+.walk-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px;
+  /* Figma Idle: the list fades out under the navbar */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+}
+
+/* Figma Settings: thin wide title, big bold labels with square X boxes. */
+.settings { min-height: 100%; display: grid; gap: 36px; align-content: space-between; padding: 24px 8px 32px; }
+.settings-title { margin: 0; font-weight: 400; font-size: 24px; letter-spacing: 0.04em; text-transform: uppercase; }
+.settings-toggles { list-style: none; margin: 0 auto; padding: 0; display: grid; gap: 14px; width: min(100%, 270px); }
+.settings-toggles label { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-size: 26px; font-weight: 700; cursor: pointer; }
+.xbox {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none;
+  width: 34px; height: 34px; border: 2px solid #fff; background: transparent; cursor: pointer;
+  display: grid; place-content: center;
+}
+.xbox::before { content: '✕'; font-size: 30px; line-height: 1; font-weight: 700; color: #fff; transform: scale(0); transition: transform 120ms ease; }
+.xbox:checked::before { transform: scale(1); }
+.xbox:focus-visible { outline: 2px solid #7fb6ff; outline-offset: 2px; }
+
+/* Figma OPEN LIST: a light grey square-cornered button with dark text. */
+.open-list {
+  align-self: center;
+  min-width: 122px; min-height: 34px; padding: 6px 20px;
+  background: #e5e5e5; color: #111; border: 0; border-radius: 2px;
+  font-family: var(--font-body); font-size: 15px; text-transform: uppercase; letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.open-list:active { transform: translateY(1px); }
+
+/* Navbar tap zones over the exported Figma art. */
+.nav-zone { background: none; border: 0; padding: 0; cursor: pointer; min-height: 44px; }
+.nav-zone:disabled { cursor: default; }
+.nav-zone:focus-visible { outline: 2px solid #fff; outline-offset: -4px; border-radius: 8px; }
+
+/* Figma Idle member row: rank, avatar, name, caret; expands to today's stats. */
+.member-row {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  min-height: 52px; padding: 10px 16px;
+  background: none; border: 0; cursor: pointer; font-size: 16px;
+}
+.member-rank { width: 16px; font-size: 18px; color: var(--color-text-secondary); }
+.member-stats { margin: 0; padding: 4px 16px 14px 46px; display: grid; gap: 10px; font-size: 15px; }
+.member-stats > div { display: flex; align-items: center; gap: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.member-stats dd { margin: 0; }
+
+/* OPEN LIST sheet: slides up over the map. */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  width: 100%; max-width: var(--size-frame-width); max-height: 82dvh; overflow-y: auto;
+  display: grid; gap: 18px; padding: 20px 20px calc(env(safe-area-inset-bottom) + 20px);
+  background: linear-gradient(var(--color-bg-raised), var(--color-bg));
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
+  animation: sheet-up 220ms ease-out both;
+}
+.sheet-close { background: none; border: 0; font-size: 20px; min-width: 44px; min-height: 44px; cursor: pointer; color: var(--color-text-secondary); }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
