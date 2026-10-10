@@ -5,6 +5,7 @@ import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { useGameByCode } from '../data/useGameByCode';
 import { useGameDay } from '../data/useGameDay';
+import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
 
@@ -28,7 +29,9 @@ function TeamColumn({ team, name, align }: { team: TeamDay; name: string; align:
           <span className={`avatar avatar-${team.team}`} style={{ width: 34, height: 34 }} />
           <strong style={{ flex: 1 }}>{m.player.name}</strong>
           <span className="muted">{fmt.format(m.steps)}</span>
-          <span style={{ width: 52, textAlign: align === 'right' ? 'left' : 'right', color: light ? '#fff' : '#d9d9d9' }}>{m.soldiers} ⚔</span>
+          <span style={{ width: 56, display: 'inline-flex', alignItems: 'center', gap: 5, justifyContent: align === 'right' ? 'flex-start' : 'flex-end', color: light ? '#fff' : '#d9d9d9' }}>
+            {m.soldiers} <img src={helmet} alt="soldiers" height={15} />
+          </span>
         </div>
       ))}
     </section>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DEFAULT_MAP, summarizePlayerDay } from '@invade/engine';
+import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type NudgeResponse, type TeamDay, type TeamId } from '@invade/engine';
 import { Countdown } from '../components/Countdown';
 import { MilestoneTrack } from '../components/MilestoneTrack';
 import { StatsBar } from '../components/StatsBar';
@@ -9,7 +9,7 @@ import { TonightCard } from '../components/TonightCard';
 import { NudgeCard } from '../components/NudgeCard';
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView, type TerritoryView } from '../map/model';
-import { loadSession } from '../data/session';
+import { loadSession, type Session } from '../data/session';
 import { SYNC_SHORTCUT_URL } from '../data/shortcut';
 import { useGameDay } from '../data/useGameDay';
 
@@ -17,19 +17,19 @@ import { useGameDay } from '../data/useGameDay';
  * ☀️ Walk Phase (Figma "Base" + "LOG"): countdown, stats, the battlefield as the scoreboard,
  * today's milestones, the nudge, the team list behind OPEN LIST, and tonight's next step.
  */
-export function WalkPhase() {
-  const session = loadSession();
-  const state = useGameDay(session?.game.id);
+export interface WalkViewProps {
+  session: Session;
+  teams: Record<TeamId, TeamDay>;
+  settings: GameSettings;
+  live: boolean;
+  /** Dev previews only: a canned nudge response so the card can be seen without the API. */
+  nudgePreload?: NudgeResponse;
+}
+
+/** The screen itself, pure: everything it shows comes from props. */
+export function WalkView({ session, teams, settings, live, nudgePreload }: WalkViewProps) {
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
-  if (!session) return <Navigate to="/join" replace />;
-
-  if (state.status === 'loading') return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
-  if (state.status === 'error' || !state.teams || !state.settings) {
-    return <main className="screen"><p className="error">{state.error ?? 'Could not load the game'}</p></main>;
-  }
-
-  const { teams, settings } = state;
   const myTeam = teams[session.player.team];
   const me = myTeam.members.find((m) => m.player.id === session.player.id) ?? summarizePlayerDay(session.player, 0);
   const view = walkPhaseMapView(DEFAULT_MAP, teams);
@@ -46,7 +46,7 @@ export function WalkPhase() {
           : 'Tap a territory'}
       </p>
       <MilestoneTrack me={me} />
-      <NudgeCard token={session.token} />
+      <NudgeCard token={session.token} preload={nudgePreload} />
       <button type="button" className="pill pill-block" onClick={() => setListOpen((o) => !o)} aria-expanded={listOpen}>
         {listOpen ? 'Close list' : 'Open list'}
       </button>
@@ -58,10 +58,21 @@ export function WalkPhase() {
       )}
       <TonightCard teams={teams} settings={settings} myTeam={session.player.team} />
 
-      <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none' }} href={SYNC_SHORTCUT_URL}>
+      <a className="pill pill-block" style={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }} href={SYNC_SHORTCUT_URL}>
         Sync from Apple Health
       </a>
-      <p className="subtitle" aria-live="polite">{state.live ? '● Live' : '○ Reconnecting…'}</p>
+      <p className="subtitle" aria-live="polite">{live ? '● Live' : '○ Reconnecting…'}</p>
     </main>
   );
+}
+
+export function WalkPhase() {
+  const session = loadSession();
+  const state = useGameDay(session?.game.id);
+  if (!session) return <Navigate to="/join" replace />;
+  if (state.status === 'loading') return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
+  if (state.status === 'error' || !state.teams || !state.settings) {
+    return <main className="screen"><p className="error">{state.error ?? 'Could not load the game'}</p></main>;
+  }
+  return <WalkView session={session} teams={state.teams} settings={state.settings} live={state.live} />;
 }

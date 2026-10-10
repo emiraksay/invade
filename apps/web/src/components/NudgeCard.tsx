@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Nudge, NudgeResponse } from '@invade/engine';
 import { api } from '../data/api';
+import helmet from '../assets/icons/stat-soldiers-helmet.svg';
 
 const fmt = new Intl.NumberFormat('de-DE');
 
@@ -21,7 +22,9 @@ function NudgeRow({ n }: { n: Nudge }) {
     <li className="item" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 15 }}>
         <strong>{n.name}</strong>
-        <span className="muted">{fmt.format(n.stepsToGo)} to +{n.gain} ⚔{n.unlocksBonus && ' · team bonus'}</span>
+        <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {fmt.format(n.stepsToGo)} to +{n.gain} <img src={helmet} alt="soldiers" height={13} style={{ opacity: 0.7 }} />{n.unlocksBonus && ' · team bonus'}
+        </span>
       </div>
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.35 }}>{n.message}</p>
       <button type="button" className="pill" style={{ fontSize: 15, minHeight: 44, alignSelf: 'flex-end' }} onClick={async () => setState(await send(n.message))}>
@@ -32,8 +35,10 @@ function NudgeRow({ n }: { n: Nudge }) {
 }
 
 /** Figma-less for now: "Who needs a nudge?" → facts from the engine, words from Claude, one tap to send. */
-export function NudgeCard({ token }: { token: string }) {
-  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; data?: NudgeResponse; error?: string }>({ status: 'idle' });
+export function NudgeCard({ token, preload }: { token: string; preload?: NudgeResponse }) {
+  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; data?: NudgeResponse; error?: string }>(
+    preload ? { status: 'ready', data: preload } : { status: 'idle' },
+  );
 
   async function load() {
     setState({ status: 'loading' });
