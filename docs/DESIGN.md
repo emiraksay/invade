@@ -22,7 +22,7 @@ Snapshots are in `docs/design/`: `06-base-map.png` is the Base walk screen, `09-
 
 - Dark warm-brown/black background with a subtle texture; white and grey territories with glowing white outlines.
 - Wide display font for headings (WHITE, BLACK, START, SWITCH TEAM); clean sans-serif for body text.
-- Stats bar icons: territories (castle), soldiers (helmet), steps (shoe), flags (regions).
+- Stats bar icons: barracks = the team's soldiers today (the file is named `stat-territories-castle.svg`), helmet = my soldiers today, shoe = my steps today, flag = territories the team holds.
 - Bottom nav: profile, map (globe), settings.
 
 ## Map decision

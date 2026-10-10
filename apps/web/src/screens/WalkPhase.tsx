@@ -12,6 +12,8 @@ import { NudgeCard } from '../components/NudgeCard';
 import { DemoSync } from '../components/DemoSync';
 import { AttackSheet } from '../components/AttackSheet';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { SoldiersArrive } from '../components/SoldiersArrive';
+import { unseenArrival } from '../data/arrivals';
 import { LogBar } from '../components/LogBar';
 import type { MilestoneEvent } from '../data/events';
 import { Battlefield } from '../map/Battlefield';
@@ -47,6 +49,14 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   // Attack: tap my piece -> attackable territories light up -> tap one -> the sheet.
   const [aiming, setAiming] = useState(false);
   const [target, setTarget] = useState<AttackOption | null>(null);
+  // Last milestone event I tapped through on the "soldiers arrive" screen (per player, on this phone).
+  const seenKey = `invade:seen-arrival:${session.game.id}:${session.player.id}`;
+  const [seenId, setSeenId] = useState<number | null>(() => {
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(seenKey); } catch { /* private mode / blocked storage: no memory, fine */ }
+    const v = Number(raw);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  });
 
   useEffect(() => {
     if (!listOpen) return;
@@ -80,6 +90,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
     : picked
       ? `${picked.name} · ${settings.teamNames[picked.owner]}${picked.isHq ? ' HQ' : ''}${picked.owner === mine ? ' · your side' : ''}`
       : myPiece ? 'Tap your piece to attack' : '';
+  const arrival = unseenArrival(events, session.player.id, seenId, Date.now());
   const stats = { teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories };
 
   return (
@@ -114,6 +125,17 @@ export function WalkView({ session, teams, settings, live, players = [], events 
         </div>
       )}
       {tab === 'settings' && <div className="walk-scroll"><SettingsPanel /></div>}
+      {tab === 'map' && arrival && (
+        <SoldiersArrive
+          key={arrival.id}
+          ev={arrival}
+          teamSoldiers={myTeam.soldiers}
+          onDone={() => {
+            setSeenId(arrival.id); // dismiss first: storage may throw (private mode, Block All Cookies)
+            try { localStorage.setItem(seenKey, String(arrival.id)); } catch { /* shown again next load, acceptable */ }
+          }}
+        />
+      )}
       <NavBar tab={tab} onTab={(t) => { setTab(t); setListOpen(false); }} />
 
       {target && (

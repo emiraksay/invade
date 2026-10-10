@@ -229,3 +229,19 @@ button, input { font: inherit; color: inherit; }
 .attack-verdict { margin: 0; font-size: 30px; }
 .attack-lost { animation: attack-shake 450ms ease-in-out; }
 @keyframes attack-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+/* Figma "Base" conversion frames: steps → soldiers into the team's barracks, over a dimmed screen. */
+.arrive {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: rgba(8, 6, 5, 0.72); cursor: pointer;
+  animation: arrive-in 300ms ease-out both;
+}
+.arrive-row { display: flex; align-items: center; gap: 22px; }
+.arrive-stat { display: grid; justify-items: center; gap: 6px; font-size: 34px; min-width: 96px; font-variant-numeric: tabular-nums; }
+.arrive-arrow { position: relative; display: grid; justify-items: center; gap: 4px; }
+.arrive-arrow small { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
+.arrive-soldier { position: absolute; top: -2px; left: 0; height: 18px; opacity: 0; animation: arrive-march 900ms ease-in both; }
+.arrive-gain { margin: 0; font-size: 16px; color: var(--color-text-secondary); }
+.arrive-tap { margin: 48px 0 0; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; transition: opacity 400ms ease; }
+@keyframes arrive-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes arrive-march { 0% { opacity: 0; transform: translateX(-70px); } 20% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(90px) scale(0.6); } }
