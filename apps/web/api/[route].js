@@ -14494,8 +14494,8 @@ __export(repo_exports, {
 });
 function db() {
   if (client) return client;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
   client = (0, import_supabase_js.createClient)(url, key, { auth: { persistSession: false } });
   return client;
@@ -20179,7 +20179,8 @@ async function handleApi(method, path, body, repo) {
     const json = await handler2(r, body);
     return { status: json.ok ? 200 : 400, json };
   } catch (e) {
-    console.error(`[api] ${method} ${path} failed`, e);
+    const detail = e instanceof Error ? e.message : JSON.stringify(e);
+    console.error(`[api] ${method} ${path} failed: ${detail}`);
     return { status: 500, json: { ok: false, error: "Something went wrong, try again" } };
   }
 }

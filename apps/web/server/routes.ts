@@ -24,7 +24,9 @@ export async function handleApi(
     return { status: json.ok ? 200 : 400, json };
   } catch (e) {
     // Never leak internals to clients; log for us.
-    console.error(`[api] ${method} ${path} failed`, e);
+    // Supabase errors are plain objects ({ message, code, hint }); log them readably.
+    const detail = e instanceof Error ? e.message : JSON.stringify(e);
+    console.error(`[api] ${method} ${path} failed: ${detail}`);
     return { status: 500, json: { ok: false, error: 'Something went wrong, try again' } };
   }
 }
