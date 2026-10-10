@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { Player } from '@invade/engine';
+import { createPortal } from 'react-dom';
+import type { BattleRecord, Player } from '@invade/engine';
+import { LogSheet } from './LogSheet';
 import { describeEvent, type MilestoneEvent } from '../data/events';
 import shoe from '../assets/icons/stat-steps-shoe.svg';
 
@@ -8,8 +10,9 @@ import shoe from '../assets/icons/stat-steps-shoe.svg';
  * "11:12 · Emir · 10.000 · +4", with arrows to walk back through earlier ones. The red dot pulses when
  * the newest event is under a minute old, so a sync on stage shows up here too.
  */
-export function LogBar({ events, players, timezone }: { events: MilestoneEvent[]; players: Player[]; timezone: string }) {
+export function LogBar({ events, players, timezone, battles = [], today }: { events: MilestoneEvent[]; players: Player[]; timezone: string; battles?: readonly BattleRecord[]; today?: string }) {
   const [i, setI] = useState(0); // 0 = newest
+  const [open, setOpen] = useState(false); // the full LOG list (Figma LOG screen)
   const newestId = events[0]?.id;
   useEffect(() => setI(0), [newestId]); // a new event snaps the bar back to it
   const ev = events[i];
@@ -29,7 +32,13 @@ export function LogBar({ events, players, timezone }: { events: MilestoneEvent[]
   return (
     <div style={{ position: 'sticky', bottom: 'calc(env(safe-area-inset-bottom) + 8px)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
       {arrow(1, 'Earlier')}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, minHeight: 44, padding: '0 14px', borderRadius: 12, background: '#000', border: '1px solid rgba(255,255,255,0.12)', fontSize: 14 }}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-label="Open the full log"
+        onClick={() => setOpen(true)}
+        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, minHeight: 44, padding: '0 14px', borderRadius: 12, background: '#000', border: '1px solid rgba(255,255,255,0.12)', fontSize: 14, color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+      >
         {ev ? (() => {
           const d = describeEvent(ev, players, timezone);
           return (
@@ -43,8 +52,10 @@ export function LogBar({ events, players, timezone }: { events: MilestoneEvent[]
         })() : (
           <span className="muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>No milestones yet today</span>
         )}
-      </div>
+      </button>
       {arrow(-1, 'Later')}
+      {/* Portal: the strip is sticky (its own stacking context), so the sheet must live at the root to cover the nav. */}
+      {createPortal(<LogSheet open={open} onClose={() => setOpen(false)} events={events} battles={battles} players={players} timezone={timezone} today={today} />, document.body)}
     </div>
   );
 }

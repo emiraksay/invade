@@ -180,7 +180,7 @@ button, input { font: inherit; color: inherit; }
 .member-stats dd { margin: 0; }
 
 /* OPEN LIST sheet: slides up over the map. */
-.sheet-backdrop { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 21; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
   width: 100%; max-width: var(--size-frame-width); max-height: 82dvh; overflow-y: auto;
   display: grid; gap: 18px; padding: 20px 20px calc(env(safe-area-inset-bottom) + 20px);
@@ -268,3 +268,7 @@ button, input { font: inherit; color: inherit; }
 .fit-map { height: 44dvh; display: flex; justify-content: center; align-items: center; }
 .fit-map > div { height: 100%; margin: 0; }
 .fit-map svg { height: 100%; width: auto; }
+
+/* Figma LOG screen rows: time · what happened · dot · steps or soldiers. */
+.log-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: #000; border: 1px solid rgba(255,255,255,0.12); font-size: 15px; }
+.log-dot { width: 16px; height: 16px; border-radius: 50%; background: #e5484d; flex: none; }

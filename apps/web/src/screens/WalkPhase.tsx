@@ -134,7 +134,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           <button type="button" className="open-list" onClick={() => setListOpen(true)} aria-haspopup="dialog">
             Open list
           </button>
-          <LogBar events={events} players={players} timezone={settings.timezone} />
+          <LogBar events={events} players={players} timezone={settings.timezone} battles={battles} today={day} />
         </>
       )}
       {tab === 'team' && (
