@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
-  { ignores: ['dist', '.vercel', '.claude/**'] },
+  { ignores: ['dist', '.vercel', '.claude/**', 'api/**'] }, // api/ holds the generated server bundle
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
