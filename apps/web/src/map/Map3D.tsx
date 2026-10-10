@@ -5,10 +5,10 @@ import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { Line2 } from 'three-stdlib';
 import type { Point, TeamId } from '@invade/engine';
-import type { MapView, TerritoryView } from './model';
+import type { MapView, PieceView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
 import { CROWN_FILL, CrownIcon } from './crown';
-import { garrisonAt, GarrisonBadge, PieceToken, playerColors } from './pieces';
+import { ATTACK_RED, attackMark, garrisonAt, piecePositions, GarrisonBadge, PieceToken, playerColors, type AttackMark } from './pieces';
 
 /**
  * Live 3D battlefield (three.js via React Three Fiber), matching the Figma's dark render:
@@ -91,8 +91,9 @@ const BREATH_FPS = 20;           // the breath redraws at a low rate: cheap on p
 const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const RIPPLE_MS = 1100;          // how long one tile glows after soldiers arrive
 const RIPPLE_STEP_MS = 140;      // delay per step from the HQ: the glow marches outward
+const FLIP_MS = 1200;            // how long a conquered tile flashes
 
-function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void; coastEdges: readonly number[] }) {
+function Pillar({ t, teamSoldiers, selected, onTap, coastEdges, mark }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void; coastEdges: readonly number[]; mark?: AttackMark }) {
   const group = useRef<THREE.Group>(null);
   const material = useRef<THREE.MeshStandardMaterial>(null);
   const invalidate = useThree((s) => s.invalidate);
@@ -106,6 +107,14 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
     }
     prevSoldiers.current = teamSoldiers;
   }, [teamSoldiers, t.depth, invalidate]);
+  // The territory changed hands (a battle was won): flash it now, brighter than a ripple.
+  const prevOwner = useRef(t.owner);
+  const flipAt = useRef(-Infinity);
+  useEffect(() => {
+    if (t.owner !== prevOwner.current) { flipAt.current = performance.now(); invalidate(); }
+    prevOwner.current = t.owner;
+  }, [t.owner, invalidate]);
+  useEffect(() => invalidate(), [mark, invalidate]);
   const poly = useMemo(() => insetPolygon(t.polygon, t.center, SLAB_GAP), [t.polygon, t.center]);
   // Shape lies in XY with Y down (map units). Laid on the ground: map y -> world z, extrude -> down.
   const shape = useMemo(() => new THREE.Shape(poly.map(([x, y]) => new THREE.Vector2(x, y))), [poly]);
@@ -127,7 +136,8 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
 
   const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
   useEffect(() => invalidate(), [lift, invalidate]); // start easing toward the new height
-  const baseEmissive = selected ? 0.5 : 0.08 + 0.3 * t.charge;
+  const baseEmissive = mark === 'target' ? 0.55 : mark === 'dim' ? 0.02 : selected ? 0.5 : 0.08 + 0.3 * t.charge;
+  const dim = mark === 'dim' ? 0.35 : 1;
   // On-demand frame loop: keep requesting frames only while something still moves (ease or ripple).
   const rim = useRef<Line2>(null);
   useFrame(({ clock }) => {
@@ -142,19 +152,24 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
     if (m) {
       const age = performance.now() - flashAt.current;
       const k = age < 0 ? 0 : Math.max(0, 1 - age / RIPPLE_MS); // 1 at the flash, fading to 0
+      const flipAge = performance.now() - flipAt.current;
+      const f = Math.max(0, 1 - flipAge / FLIP_MS);
       // Held land breathes: a slow glow that rolls out from the HQ, stronger where the team is charged.
       const breath = reducedMotion ? 0 : 0.5 + 0.5 * Math.sin((clock.elapsedTime / BREATH_S) * Math.PI * 2 - t.depth * 0.7);
-      m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.15 + 0.4 * t.charge);
-      if (rim.current) rim.current.material.opacity = 0.1 + 0.25 * t.charge + breath * (0.2 + 0.45 * t.charge);
+      // A target pulses red faster, so the choice reads at a glance.
+      const pulse = mark === 'target' && !reducedMotion ? 0.5 + 0.5 * Math.sin(clock.elapsedTime * Math.PI * 2 * 0.9) : 0;
+      m.emissiveIntensity = baseEmissive + k * k * 0.9 + f * f * 2.2 + pulse * 0.5 + dim * breath * (0.15 + 0.4 * t.charge);
+      if (rim.current) rim.current.material.opacity = mark === 'target' ? 0.5 + 0.5 * pulse : dim * (0.1 + 0.25 * t.charge + breath * (0.2 + 0.45 * t.charge));
       // The reflection breathes with its slab.
       if (reflectionMat.current) reflectionMat.current.opacity = 0.8 + 0.2 * breath * (0.4 + t.charge);
-      if (age < RIPPLE_MS) moving = true;
+      if (age < RIPPLE_MS || flipAge < FLIP_MS) moving = true;
     }
     if (moving) invalidate();
   });
 
-  const top = new THREE.Color(COLOR[t.owner].dim).lerp(new THREE.Color(COLOR[t.owner].lit), t.charge);
-  const edgeOpacity = selected ? 1 : 0.75 + 0.25 * t.charge;
+  const top = new THREE.Color(COLOR[t.owner].dim).lerp(new THREE.Color(COLOR[t.owner].lit), t.charge).multiplyScalar(dim);
+  const edgeOpacity = mark === 'target' || selected ? 1 : dim * (0.75 + 0.25 * t.charge);
+  const edgeColor = mark === 'target' ? ATTACK_RED : selected ? '#7fb6ff' : '#ffffff';
   const [cx, cy] = t.center;
   // Top outline in world space (map y -> world z), closed, lifted a hair above the face to avoid z-fighting.
   const outline = useMemo<[number, number, number][]>(
@@ -178,10 +193,10 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
           color={top}
           roughness={t.owner === 'white' ? 0.35 : 0.8}
           metalness={0.05}
-          emissive={selected ? '#7fb6ff' : t.owner === 'white' ? '#ffffff' : '#8a8580'}
+          emissive={mark === 'target' ? ATTACK_RED : selected ? '#7fb6ff' : t.owner === 'white' ? '#ffffff' : '#8a8580'}
           emissiveIntensity={baseEmissive}
         />
-        <meshStandardMaterial attach="material-1" color={SIDE_COLOR[t.owner]} roughness={0.45} metalness={0.1} />
+        <meshStandardMaterial attach="material-1" color={new THREE.Color(SIDE_COLOR[t.owner]).multiplyScalar(dim)} roughness={0.45} metalness={0.1} />
       </mesh>
       {/* Thin bright rim where the top face meets the side, plus a faint glow as the team charges. */}
       {coastEdges.length > 0 && (
@@ -189,8 +204,8 @@ function Pillar({ t, teamSoldiers, selected, onTap, coastEdges }: { t: Territory
           <meshBasicMaterial ref={reflectionMat} vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
         </mesh>
       )}
-      <Line ref={rim} points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
-      <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={1.4} transparent opacity={edgeOpacity} depthWrite={false} />
+      <Line ref={rim} points={outline} color={edgeColor} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
+      <Line points={outline} color={edgeColor} lineWidth={1.4} transparent opacity={edgeOpacity} depthWrite={false} />
       {t.isHq && (
         <Html position={[cx, step + 2.5, cy]} center distanceFactor={120} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           {/* Figma: the HQ shows just the crown, no number. */}
@@ -253,6 +268,10 @@ export interface Map3DProps {
   onContextDead?: () => void;
   /** Bloom post-processing for the Figma's glow. Costs GPU: on for the projector, off on phones by default. */
   bloom?: boolean;
+  /** Territories I can attack right now (highlighted; the rest dims). Null when not choosing. */
+  targets?: ReadonlySet<string> | null;
+  /** Tap on my own piece (starts choosing an attack). */
+  onPieceTap?: (p: PieceView) => void;
 }
 
 const NO_EDGES: readonly number[] = [];
@@ -282,12 +301,14 @@ function coastEdgesOf(view: MapView): Map<string, number[]> {
   return out;
 }
 
-export default function Map3D({ view, selected = null, onTap, onReady, onContextDead, bloom = false }: Map3DProps) {
+export default function Map3D({ view, selected = null, onTap, onReady, onContextDead, bloom = false, targets = null, onPieceTap }: Map3DProps) {
   const { width: w, height: h } = view;
   const coast = useMemo(() => coastEdgesOf(view), [view]);
   const byId = useMemo(() => new Map(view.territories.map((t) => [t.id, t])), [view]);
   const colors = useMemo(() => playerColors(view.pieces), [view]);
   const occupied = useMemo(() => new Set(view.pieces.map((p) => p.territoryId)), [view]);
+  const spots = useMemo(() => piecePositions(view), [view]);
+  const myTerritory = view.pieces.find((p) => p.isMe)?.territoryId;
   return (
     <div
       style={{
@@ -326,11 +347,12 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
         <group rotation={[0, MAP_YAW, 0]}>
         <group position={[-w / 2, 0, -h / 2]}>
           {view.territories.map((t) => (
-            <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} coastEdges={coast.get(t.id) ?? NO_EDGES} />
+            <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} coastEdges={coast.get(t.id) ?? NO_EDGES} mark={attackMark(t.id, targets, myTerritory)} />
           ))}
           {/* Garrison numbers and player pieces float just above the tile tops and always face the camera. */}
-          {view.territories.map((t) => {
-            const [gx, gz] = garrisonAt(t.center, t.isHq || occupied.has(t.id));
+          {/* Figma: the HQ shows only its crown, no number next to it. */}
+          {view.territories.filter((t) => !t.isHq).map((t) => {
+            const [gx, gz] = garrisonAt(t.center, occupied.has(t.id));
             return (
             <Html key={`g-${t.id}`} position={[gx, topOf(t) + 1.5, gz]} center distanceFactor={120} zIndexRange={[20, 11]} style={{ pointerEvents: 'none' }}>
               <GarrisonBadge soldiers={t.soldiers} />
@@ -340,8 +362,8 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
           {view.pieces.map((p) => {
             const t = byId.get(p.territoryId);
             return (
-              <Html key={`p-${p.playerId}`} position={[p.position[0], (t ? topOf(t) : 0) + 3, p.position[1]]} center distanceFactor={120} zIndexRange={[40, 21]} style={{ pointerEvents: 'none' }}>
-                <PieceToken piece={p} color={colors.get(p.playerId)!} />
+              <Html key={`p-${p.playerId}`} position={[spots.get(p.playerId)![0], (t ? topOf(t) : 0) + 3, spots.get(p.playerId)![1]]} center distanceFactor={120} zIndexRange={[40, 21]} style={{ pointerEvents: p.isMe && onPieceTap ? 'auto' : 'none' }}>
+                <PieceToken piece={p} color={colors.get(p.playerId)!} onTap={p.isMe ? onPieceTap : undefined} />
               </Html>
             );
           })}
