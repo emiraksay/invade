@@ -1,4 +1,4 @@
-import type { Player, TeamId } from '@invade/engine';
+import type { BattleRecord, MapDef, Player, TeamId } from '@invade/engine';
 
 /** A milestone crossed today: written by POST /api/steps (server/handlers.ts), read live by the screens. */
 export interface MilestoneEvent {
@@ -28,4 +28,39 @@ const time = (iso: string, timezone: string) =>
 export function describeEvent(ev: MilestoneEvent, players: readonly Player[], timezone: string) {
   const name = players.find((p) => p.id === ev.playerId)?.name ?? 'Someone';
   return { time: time(ev.at, timezone), name, steps: fmt.format(ev.steps), gained: `+${ev.gained}` };
+}
+
+/** What the big screen shouts when an event lands: headline, sub-line, team colour. */
+export interface Spotlight {
+  id: number;
+  team: TeamId;
+  headline: string;
+  sub: string;
+}
+
+/** A battle (engine BattleRecord) with the territory name resolved, ready for the spotlight. */
+export interface BattleShout {
+  id: number;
+  at: string;
+  team: TeamId;
+  territory: string;
+  won: boolean;
+  p: number;
+  playerId: string;
+}
+
+export function battleShout(b: BattleRecord, map: MapDef): BattleShout {
+  return { id: b.id, at: b.at, team: b.team, territory: map.territories.find((t) => t.id === b.to)?.name ?? b.to, won: b.won, p: b.p, playerId: b.playerId };
+}
+
+export function spotlightFor(ev: MilestoneEvent | BattleShout, players: readonly Player[], teamNames: Record<TeamId, string>): Spotlight {
+  if ('won' in ev) {
+    const who = players.find((p) => p.id === ev.playerId)?.name;
+    const pct = ` · ${Math.round(ev.p * 100)}% odds`;
+    return ev.won
+      ? { id: ev.id, team: ev.team, headline: `${teamNames[ev.team]} captures ${ev.territory}`.toUpperCase(), sub: `${who ? `${who} led the attack` : 'Attack'}${pct}` }
+      : { id: ev.id, team: ev.team, headline: `${ev.territory} holds`.toUpperCase(), sub: `${teamNames[ev.team]}${who ? ` (${who})` : ''} attacked and failed${pct}` };
+  }
+  const name = players.find((p) => p.id === ev.playerId)?.name ?? 'Someone';
+  return { id: ev.id, team: ev.team, headline: `${name} +${ev.gained} soldiers`.toUpperCase(), sub: `${fmt.format(ev.steps)} steps today · ${teamNames[ev.team]}` };
 }

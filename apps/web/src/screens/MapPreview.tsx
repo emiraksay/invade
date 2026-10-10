@@ -77,12 +77,23 @@ const FAKE_SETTINGS: GameSettings = {
 /** Dev only (`/preview/table`): the projector view with fake players, no Supabase. */
 export function TablePreview() {
   const day = '2026-10-10';
+  const [extra, setExtra] = useState<MilestoneEvent[]>([]);
+  const fire = () => {
+    const id = 100 + extra.length;
+    const who = FAKE_PLAYERS[id % FAKE_PLAYERS.length]!;
+    setExtra((xs) => [{ id, at: new Date().toISOString(), playerId: who.id, team: who.team, steps: 5_000 + id * 37, soldiers: 4, gained: 4 }, ...xs]);
+  };
   const reports: StepReport[] = FAKE_PLAYERS.map((p) => ({ playerId: p.id, day, steps: FAKE_STEPS[p.id] ?? 0, source: 'demo', reportedAt: day }));
   const teams = {
     white: summarizeTeamDay('white', FAKE_PLAYERS, reports, day),
     black: summarizeTeamDay('black', FAKE_PLAYERS, reports, day),
   };
-  return <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={FAKE_EVENTS} generalPreload={FAKE_GENERAL} />;
+  return (
+    <>
+      <TableView teams={teams} settings={FAKE_SETTINGS} live code="INVADE" players={FAKE_PLAYERS} events={[...extra, ...FAKE_EVENTS]} generalPreload={FAKE_GENERAL} />
+      <button type="button" className="pill" style={{ position: 'fixed', top: 12, right: 12, zIndex: 40, fontSize: 13 }} onClick={fire}>+ milestone (demo)</button>
+    </>
+  );
 }
 
 /** Dev only (`/preview/walk`): the whole Walk screen as Kateryna (White) sees it, with a canned nudge. */
