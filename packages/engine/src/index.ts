@@ -3,4 +3,4 @@ export * from './types';
 export * from './api';
 export * from './steps';
 export { DEFAULT_MAP, generateMap, seededRng } from './map';
-export { gameDayOf } from './time';
+export { gameDayOf, secondsUntilDayEnd } from './time';

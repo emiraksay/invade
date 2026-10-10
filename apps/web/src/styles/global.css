@@ -1,0 +1,107 @@
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  /* Figma GameBackGround: warm dark centre glow fading to near black. */
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 35%, var(--color-bg-raised) 0%, var(--color-bg) 55%, var(--color-bg-bottom) 100%)
+    fixed var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input { font: inherit; color: inherit; }
+
+/* Phone-width column, centred on larger screens (the Mac shows the same frame). */
+.screen {
+  min-height: 100%;
+  max-width: var(--size-frame-width);
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 28px) 24px calc(env(safe-area-inset-bottom) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-shadow: var(--text-shadow-button);
+}
+
+.title { font-size: 34px; text-align: center; margin: 24px 0 0; }
+.subtitle { text-align: center; color: var(--color-text-secondary); font-size: 13px; margin: 0; }
+.muted { color: var(--color-text-muted); }
+
+/* Figma "pill" button (START, GAME SETTINGS, SWITCH TEAM). */
+.pill {
+  font-family: var(--font-display);
+  font-size: var(--font-size-button);
+  text-transform: uppercase;
+  text-shadow: var(--text-shadow-button);
+  background: var(--color-surface-pill);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--space-pill-y) var(--space-pill-x);
+  min-height: 48px;
+  cursor: pointer;
+  transition: transform 80ms ease, opacity 120ms ease;
+}
+.pill:active { transform: translateY(2px); box-shadow: var(--shadow-button-inset); }
+.pill:disabled { opacity: 0.4; cursor: default; }
+.pill-block { width: 100%; }
+
+/* Figma Text Input: rounded, light outline, dark fill. */
+.field {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 18px;
+  background: var(--color-surface-item);
+  border: 1.5px solid var(--color-text-muted);
+  border-radius: var(--radius-pill);
+  font-size: 16px; /* 16px stops iOS zooming into the field */
+  outline: none;
+}
+.field:focus { border-color: var(--color-text-primary); }
+
+/* Figma PlayerItem row. */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 10px 16px;
+  background: var(--color-surface-item);
+  border-radius: var(--radius-item);
+  box-shadow: var(--shadow-item);
+}
+.item-me { background: var(--color-surface-item-highlight); }
+
+.avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+.avatar-white { background: var(--color-team-white); }
+.avatar-black { background: #3a3532; border: 1.5px solid var(--color-text-muted); }
+
+.error { color: #ff8a8a; font-size: 14px; text-align: center; min-height: 20px; margin: 0; }
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  padding: 14px;
+  border-radius: var(--radius-item);
+  background: var(--color-surface-item);
+  box-shadow: var(--shadow-item);
+  user-select: all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

@@ -81,6 +81,26 @@ $$;
 -- Only the server may call it.
 revoke execute on function public.report_steps(uuid, date, integer, text) from public, anon, authenticated;
 
+-- Atomic join: enforces max 4 players per team under concurrent joins, and stores the token hash.
+create function public.create_player(p_game uuid, p_name text, p_team text, p_token_hash text)
+returns public.players
+language plpgsql
+as $$
+declare
+  v_player public.players;
+begin
+  perform 1 from public.games where id = p_game for update; -- serialize joins per game
+  if (select count(*) from public.players where game_id = p_game and team = p_team) >= 4 then
+    raise exception 'team_full';
+  end if;
+  insert into public.players (game_id, name, team) values (p_game, p_name, p_team) returning * into v_player;
+  insert into public.player_secrets (player_id, token_hash) values (v_player.id, p_token_hash);
+  return v_player;
+end;
+$$;
+
+revoke execute on function public.create_player(uuid, text, text, text) from public, anon, authenticated;
+
 -- RLS: games, players, step_reports, events are readable by anyone with the anon key
 -- (the game code is the shared secret for this hackathon). No client writes at all.
 alter table public.games          enable row level security;
