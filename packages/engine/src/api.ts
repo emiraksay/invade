@@ -74,6 +74,23 @@ export interface NudgeResponse {
   writer: 'claude' | 'template';
 }
 
+/** POST /api/attack: my piece attacks an enemy territory next to it. The server rolls (decision 4). */
+export interface AttackRequest {
+  token: string;
+  /** Territory id to attack (from attackOptions). */
+  to: string;
+  soldiers: number;
+}
+export interface AttackResponse {
+  won: boolean;
+  /** Win probability; the server rolled `roll` in [0, 1) and won if roll < p. */
+  p: number;
+  roll: number;
+  to: string;
+  attackersLeft: number;
+  defendersLeft: number;
+}
+
 /**
  * POST /api/general — the AI General: one order from the live map. Code picks the order and every number
  * (decision 14); Claude only writes the words. `{ token }` for a player, `{ code, team }` for the team

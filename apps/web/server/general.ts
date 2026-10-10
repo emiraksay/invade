@@ -3,12 +3,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import {
-  DEFAULT_MAP,
+  attackOdds as engineAttackOdds,
+  attackOptions as engineAttackOptions,
   gameDayOf,
-  startingPositions,
-  summarizeTeamDay,
   teamBonus,
   type ApiResult,
+  type AttackOption,
   type GeneralOrder,
   type GeneralResponse,
   type Player,
@@ -18,20 +18,13 @@ import {
 } from '@invade/engine';
 import { hashToken } from './tokens';
 import type { GameRow, Repo } from './handlers';
+import { loadWarContext } from './war';
 
-/** An enemy territory the player could attack, as the engine's attackOptions() will return it. */
-export interface AttackOption {
-  to: string;
-  name: string;
-  defenders: number;
-  maxAttackers: number;
-}
-
+export type { AttackOption };
 export const STRONG_ODDS = 0.6;
 
-/** Decision 4: P(win) = attackers ÷ (attackers + defenders). Replaced by the engine's attackOdds() when it lands. */
-export const attackOdds = (attackers: number, defenders: number): number =>
-  attackers > 0 ? attackers / (attackers + defenders) : 0;
+/** The engine's odds (decision 4), guarded for a zero-strength attack. */
+export const attackOdds = (attackers: number, defenders: number): number => (attackers > 0 ? engineAttackOdds(attackers, defenders) : 0);
 
 export interface OrderInput {
   me: PlayerDay;
@@ -128,29 +121,21 @@ const requestSchema = z.union([
   z.object({ code: z.string().trim().toUpperCase().min(1).max(20), team: z.enum(['white', 'black']) }),
 ]);
 
-export interface WarContext {
+export interface GeneralContext {
   players: Player[];
   days: Record<TeamId, TeamDay>;
   attackOptions: (playerId: string) => AttackOption[];
   territoryOf: (playerId: string) => string | null;
 }
 
-/**
- * Today's context for the General. Attack options are EMPTY until the engine's war functions are merged
- * (Emir: "wire attacks when I say"); everything else is live. Swap the two closures for loadWarContext() then.
- */
-export async function loadContext(repo: Repo, game: GameRow, day: string): Promise<WarContext> {
-  const [players, reports] = await Promise.all([repo.listPlayers(game.id), repo.listStepReports(game.id, day)]);
-  const days: Record<TeamId, TeamDay> = {
-    white: summarizeTeamDay('white', players, reports, day),
-    black: summarizeTeamDay('black', players, reports, day),
-  };
-  const positions = startingPositions(DEFAULT_MAP, players);
+/** Today's facts for the General, from the engine's war context (#34): live attack options and piece positions. */
+export async function loadContext(repo: Repo, game: GameRow, now: Date): Promise<GeneralContext> {
+  const ctx = await loadWarContext(repo, game, now);
   return {
-    players,
-    days,
-    attackOptions: () => [],
-    territoryOf: (id) => DEFAULT_MAP.territories.find((t) => t.id === positions.get(id))?.name ?? null,
+    players: ctx.players,
+    days: ctx.teams,
+    attackOptions: (id) => engineAttackOptions(ctx.war, ctx.map, id),
+    territoryOf: (id) => ctx.map.territories.find((t) => t.id === ctx.war.pieces[id]?.territoryId)?.name ?? null,
   };
 }
 
@@ -182,7 +167,7 @@ export async function general(repo: Repo, input: unknown, now: Date, writer?: Ge
   }
 
   const day = gameDayOf(now, game.settings.timezone);
-  const ctx = await load(repo, game, day);
+  const ctx = await load(repo, game, now);
   const members = ctx.days[team].members;
   const orderFor = (m: PlayerDay) => pickOrder({ me: m, team: ctx.days[team], options: ctx.attackOptions(m.player.id), territory: ctx.territoryOf(m.player.id) });
 

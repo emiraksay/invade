@@ -1,4 +1,4 @@
-import type { ApiResult, GeneralResponse, JoinRequest, JoinResponse, MeResponse, NudgeResponse, SubmitStepsRequest, SubmitStepsResponse, TeamId } from '@invade/engine';
+import type { ApiResult, AttackResponse, GeneralResponse, JoinRequest, JoinResponse, MeResponse, NudgeResponse, SubmitStepsRequest, SubmitStepsResponse, TeamId } from '@invade/engine';
 
 async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   try {
@@ -16,4 +16,5 @@ export const api = {
   steps: (req: SubmitStepsRequest) => post<SubmitStepsResponse>('/api/steps', req),
   general: (token: string) => post<GeneralResponse>('/api/general', { token }),
   generalTeam: (code: string, team: TeamId) => post<GeneralResponse>('/api/general', { code, team }),
+  attack: (token: string, to: string, soldiers: number) => post<AttackResponse>('/api/attack', { token, to, soldiers }),
 };

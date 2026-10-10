@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { DEFAULT_MAP, type GameSettings, type GeneralResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
+import { DEFAULT_MAP, type BattleRecord, type GameSettings, type GeneralResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
 import { TeamGeneral } from '../components/GeneralOrders';
 import { describeEvent, type MilestoneEvent } from '../data/events';
 import { Countdown } from '../components/Countdown';
@@ -42,6 +42,9 @@ function TeamColumn({ team, name, align }: { team: TeamDay; name: string; align:
 
 export interface TableViewProps {
   teams: Record<TeamId, TeamDay>;
+  /** Every battle so far (oldest first) and today's game day: the map replays the war from them. */
+  battles?: BattleRecord[];
+  today?: string;
   settings: GameSettings;
   live: boolean;
   code: string;
@@ -71,9 +74,9 @@ function Feed({ events, players, timezone }: { events: MilestoneEvent[]; players
 }
 
 /** The big screen itself, pure: given today's teams it renders the countdown, both columns and the battlefield. */
-export function TableView({ teams, settings, live, code, players = [], events = [], generalPreload }: TableViewProps) {
-  const refreshKey = `${teams.white.soldiers}:${teams.black.soldiers}:${events[0]?.id ?? 0}`;
-  const view = walkPhaseMapView(DEFAULT_MAP, teams);
+export function TableView({ teams, settings, live, code, players = [], events = [], battles = [], today, generalPreload }: TableViewProps) {
+  const refreshKey = `${teams.white.soldiers}:${teams.black.soldiers}:${events[0]?.id ?? 0}:${battles.length}`;
+  const view = walkPhaseMapView(DEFAULT_MAP, teams, { battles, today });
   const joinUrl = `${window.location.origin}/join?code=${code}`;
   return (
     <main style={{ minHeight: '100%', padding: '32px 40px', display: 'grid', gap: 24, maxWidth: 1400, margin: '0 auto' }}>
@@ -119,5 +122,5 @@ export function Table() {
   if (!lookup.game || state.status !== 'ready' || !state.teams || !state.settings) {
     return <main className="screen"><p className="subtitle">Loading the battlefield…</p></main>;
   }
-  return <TableView teams={state.teams} settings={state.settings} live={state.live} code={code} players={state.players} events={state.events} />;
+  return <TableView teams={state.teams} settings={state.settings} live={state.live} code={code} players={state.players} events={state.events} battles={state.battles} today={state.day} />;
 }

@@ -123,6 +123,7 @@ function memoryRepo() {
     async findByTokenHash(hash) { const p = ps.find((x) => x.id === secrets.get(hash)); return p ? { player: p, game } : null; },
     async reportSteps(id, day, v) { const k = `${id}|${day}`; const before = steps.get(k) ?? 0; const after = Math.max(before, v); steps.set(k, after); return { before, after }; },
     async insertEvent() {},
+    async listBattles() { return []; },
     async listPlayers() { return [...ps]; },
     async listStepReports(_g, day) {
       return [...steps.entries()].filter(([k]) => k.endsWith(`|${day}`)).map(([k, v]) => ({ playerId: k.split('|')[0]!, day, steps: v, source: 'demo' as const, reportedAt: day }));
@@ -167,9 +168,9 @@ describe('general route', () => {
     const k = await joined(repo, 'Kateryna', 'white');
     await joined(repo, 'Costi', 'white');
     await submitSteps(repo, { token: k, steps: 12_000, day: DAY, source: 'demo' }, NOW);
-    const withAttacks: typeof import('./general').loadContext = async (rp, g, d) => {
+    const withAttacks: typeof import('./general').loadContext = async (rp, g, n) => {
       const { loadContext } = await import('./general');
-      const ctx = await loadContext(rp, g, d);
+      const ctx = await loadContext(rp, g, n);
       return { ...ctx, attackOptions: (id) => (id === 'p1' ? [{ to: 't1', name: 'Gràcia', defenders: 2, maxAttackers: 10 }] : []) };
     };
     const r = await general(repo, { code: 'invade', team: 'white' }, NOW, async (o) => `${o.player}: ${o.kind}`, withAttacks);

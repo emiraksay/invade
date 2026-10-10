@@ -1,3 +1,4 @@
+import type { BattleRecord } from '@invade/engine';
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { DEFAULT_MAP, summarizePlayerDay, type GameSettings, type GeneralResponse, type NudgeResponse, type Player, type TeamDay, type TeamId } from '@invade/engine';
@@ -26,6 +27,9 @@ export interface WalkViewProps {
   live: boolean;
   players?: Player[];
   events?: MilestoneEvent[];
+  /** Every battle so far (oldest first) and today's game day: the map replays the war from them. */
+  battles?: BattleRecord[];
+  day?: string;
   /** Dev previews only: canned responses so the cards can be seen without the API. */
   nudgePreload?: NudgeResponse;
   generalPreload?: GeneralResponse;
@@ -37,7 +41,7 @@ export interface WalkViewProps {
  * sync) and the LOG bar, with no scrolling. The floating navbar switches to the Figma "Idle" team
  * panel and to Settings (Apple Health sync, SFX / Music / Notification).
  */
-export function WalkView({ session, teams, settings, live, players = [], events = [], nudgePreload, generalPreload }: WalkViewProps) {
+export function WalkView({ session, teams, settings, live, players = [], events = [], battles = [], day, nudgePreload, generalPreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
@@ -53,7 +57,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
   const other = mine === 'white' ? 'black' : 'white';
   const myTeam = teams[mine];
   const me = myTeam.members.find((m) => m.player.id === session.player.id) ?? summarizePlayerDay(session.player, 0);
-  const view = walkPhaseMapView(DEFAULT_MAP, teams);
+  const view = walkPhaseMapView(DEFAULT_MAP, teams, { myId: session.player.id, battles, today: day });
   const territories = view.teams[mine].territories;
   const stats = { teamSoldiers: myTeam.soldiers, mySoldiers: me.soldiers, mySteps: me.steps, territories };
 
@@ -94,7 +98,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
               <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Today</h2>
               <button type="button" className="sheet-close" onClick={() => setListOpen(false)} aria-label="Close list">✕</button>
             </header>
-            <GeneralOrders token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}`} preload={generalPreload} />
+            <GeneralOrders token={session.token} refreshKey={`${myTeam.soldiers}:${teams[other].soldiers}:${events[0]?.id ?? 0}:${battles.length}`} preload={generalPreload} />
             <MilestoneTrack me={me} />
             <NudgeCard token={session.token} preload={nudgePreload} />
             <TonightCard teams={teams} settings={settings} myTeam={mine} />
@@ -118,5 +122,5 @@ export function WalkPhase() {
   if (state.status === 'error' || !state.teams || !state.settings) {
     return <main className="screen"><p className="error">{state.error ?? 'Could not load the game'}</p></main>;
   }
-  return <WalkView session={session} teams={state.teams} settings={state.settings} live={state.live} players={state.players} events={state.events} />;
+  return <WalkView session={session} teams={state.teams} settings={state.settings} live={state.live} players={state.players} events={state.events} battles={state.battles} day={state.day} />;
 }

@@ -5,3 +5,5 @@ export * from './steps';
 export { DEFAULT_MAP, generateMap, seededRng } from './map';
 export { gameDayOf, secondsUntilDayEnd } from './time';
 export { STARTING_GARRISON, depthsFromHq, startingPositions } from './pieces';
+export { attackOdds, attackOptions, resolveBattle, territoryShare, toBattleRecord, warState } from './war';
+export type { AttackOption, BattleRecord, PieceState, WarState } from './war';
