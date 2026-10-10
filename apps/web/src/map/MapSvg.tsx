@@ -7,7 +7,7 @@ import { CROWN_FILL, CROWN_H, CROWN_PATH, CROWN_W } from './crown';
 /**
  * 2.5D SVG battlefield in the Figma "Base" style: dark extruded tiles for Black, light glossy
  * tiles for White, glowing white edges that brighten as a team's charge rises, the HQ marked
- * with the Figma's pixel crown. Pure presentation: everything it draws comes from MapView.
+ * with a crown. Pure presentation: everything it draws comes from MapView.
  * Works everywhere (no WebGL), so it is also the fallback for the three.js map.
  */
 
@@ -31,17 +31,18 @@ function mix(a: string, b: string, t: number): string {
 
 const path = (poly: readonly Point[], dy = 0) => `M${poly.map(([x, y]) => `${x} ${y + dy}`).join('L')}Z`;
 
-/** The Figma's pixel crown, centred on (x, y), about 9 map units wide. */
+/** The HQ crown (outlined), centred on (x, y), about 9 map units wide. */
 function Crown({ x, y, fill }: { x: number; y: number; fill: string }) {
   const k = 9 / CROWN_W;
   return (
     <path
       d={CROWN_PATH}
       transform={`translate(${x - (CROWN_W * k) / 2} ${y - (CROWN_H * k) / 2}) scale(${k})`}
-      fill={fill}
-      stroke="#000"
-      strokeWidth={0.6 / k}
-      shapeRendering="crispEdges"
+      fill="none"
+      stroke={fill}
+      strokeWidth={1.8}
+      strokeLinejoin="round"
+      strokeLinecap="round"
     />
   );
 }

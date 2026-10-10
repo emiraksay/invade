@@ -65,3 +65,17 @@ export function islandPolygon(polygon: readonly Point[], width: number, height: 
   });
   return out.map((p) => islandPoint(p, width, height));
 }
+
+/** The whole island's coastline (the map border, bent), finely sampled. For shadows and outlines. */
+export function islandOutline(width: number, height: number, perSide = 48): Point[] {
+  const corners: Point[] = [[0, 0], [width, 0], [width, height], [0, height]];
+  const out: Point[] = [];
+  corners.forEach((a, i) => {
+    const b = corners[(i + 1) % 4]!;
+    for (let j = 0; j < perSide; j++) {
+      const t = j / perSide;
+      out.push(islandPoint([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], width, height));
+    }
+  });
+  return out;
+}
