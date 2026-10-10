@@ -1,6 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { MapSvg } from './MapSvg';
-import type { MapView, PieceView, TerritoryView } from './model';
+import type { MapView, TerritoryView } from './model';
 
 // three.js is ~600 kB, so it loads in its own chunk, only when the 3D map is actually shown.
 const Map3D = lazy(() => import('./Map3D'));
@@ -47,12 +47,10 @@ export interface BattlefieldProps {
   bloom?: boolean;
   /** Territories I can attack right now (highlighted; the rest dims). Null when not choosing. */
   targets?: ReadonlySet<string> | null;
-  /** Tap on my own piece (starts choosing an attack). */
-  onPieceTap?: (p: PieceView) => void;
 }
 
 /** The battlefield, in 3D where possible and as the 2.5D SVG everywhere else. Same props either way. */
-export function Battlefield({ view, selected, onTap, mode = 'auto', bloom = false, targets = null, onPieceTap }: BattlefieldProps) {
+export function Battlefield({ view, selected, onTap, mode = 'auto', bloom = false, targets = null }: BattlefieldProps) {
   const webgl = useMemo(hasWebGL, []);
   const [ready, setReady] = useState(false);   // the 3D map has painted its first frame
   const [svgGone, setSvgGone] = useState(false); // the SVG finished fading out
@@ -64,7 +62,7 @@ export function Battlefield({ view, selected, onTap, mode = 'auto', bloom = fals
   }, [ready]);
 
   const use3d = !dead && (mode === '3d' || (mode === 'auto' && webgl));
-  const svg = <MapSvg view={view} selected={selected} onTap={onTap} targets={targets} onPieceTap={onPieceTap} />;
+  const svg = <MapSvg view={view} selected={selected} onTap={onTap} targets={targets} />;
   if (!use3d) return svg;
   // The three.js chunk and the first GL frame take a moment: the SVG stays on screen until the 3D
   // map has painted, then cross-fades out. The screen is never blank.
@@ -73,7 +71,7 @@ export function Battlefield({ view, selected, onTap, mode = 'auto', bloom = fals
       <div style={{ opacity: ready ? 1 : 0, transition: 'opacity 400ms ease' }}>
         <MapErrorBoundary onError={() => setDead(true)}>
           <Suspense fallback={null}>
-            <Map3D view={view} selected={selected} onTap={onTap} targets={targets} onPieceTap={onPieceTap} onReady={() => setReady(true)} onContextDead={() => setDead(true)} bloom={bloom} />
+            <Map3D view={view} selected={selected} onTap={onTap} targets={targets} onReady={() => setReady(true)} onContextDead={() => setDead(true)} bloom={bloom} />
           </Suspense>
         </MapErrorBoundary>
       </div>
