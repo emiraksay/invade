@@ -1,0 +1,92 @@
+/*
+ * Invade design tokens, from Figma "RiskWalk (Copy)" (file 0HVELJrA313HiBhM2hBGMd).
+ * The Figma file defines NO variables (get_variable_defs returned {}), so every value here
+ * comes from component code (get_design_context) or exported SVG fills.
+ * Values marked "approx" were sampled from screen PNGs (docs/design on feat/contracts),
+ * not read from Figma. See docs/ASSETS.md. Keep in sync with tokens.ts.
+ */
+:root {
+  /* Backgrounds (approx: warm brown/black textured background, sampled) */
+  --color-bg: #110d0b;            /* approx, top/edges of GameBackGround */
+  --color-bg-raised: #251f1b;     /* approx, lighter centre glow of the background */
+  --color-bg-bottom: #010102;     /* approx, bottom fade */
+
+  /* Surfaces */
+  --color-surface-item: rgba(0, 0, 0, 0.2);          /* PlayerItem row */
+  --color-surface-item-highlight: #242120;           /* approx, own/owner row in lobby */
+  --color-surface-pill: rgba(71, 71, 71, 0.55);      /* pill button (ATTACK, START, GAME SETTINGS) */
+  --color-surface-navbar: rgba(22, 22, 22, 0.7);     /* #161616 @ 70% */
+  --color-track: #262626;                            /* approx, LoadingBar track */
+  --color-track-fill: #d9d9d9;                       /* approx, LoadingBar fill */
+
+  /* Borders / glows */
+  --color-border-item-glow: rgba(180, 180, 180, 0.25);
+  --color-border-strong: #000000;                    /* 1.08px stroke on pressed buttons */
+
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #d9d9d9;   /* copy/paste icons, secondary UI */
+  --color-text-muted: #828282;       /* dropdown caret */
+  --color-text-disabled: #555555;    /* inactive navbar icons */
+  --color-text-pressed-blue: #7e7e7e;
+  --color-text-pressed-negative: #848484;
+
+  /* Teams */
+  --color-team-white: #ffffff;
+  --color-team-black: #000000;       /* approx; black territories render as dark grey tiles, see map art */
+
+  /* Buttons */
+  --color-accent: #27679c;           /* BlueButton (pressed bg base) */
+  --color-negative: #9c2727;         /* NegativeButton (pressed bg base) */
+  --color-pressed-overlay: rgba(0, 0, 0, 0.5);
+  --color-shadow-blue-text: #002645;
+  --color-shadow-negative-text: #330202;
+
+  /* Fonts */
+  --font-display: "Turret Road", "Orbitron", system-ui, sans-serif;   /* WHITE/BLACK/START/SWITCH TEAM/ATTACK/CANCEL */
+  --font-body: "Montserrat", system-ui, -apple-system, sans-serif;     /* names, numbers, body */
+  --font-pressed: "Bowlby One SC", "Turret Road", sans-serif;          /* pressed-state button label (SPIN) */
+
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
+
+  --font-size-button: 24px;          /* Turret Road, uppercase */
+  --font-size-button-pressed: 21px;  /* Bowlby One SC, 21.011px */
+  --font-size-rank: 25px;            /* PlayerItem rank number, Montserrat Regular */
+  --font-size-player-name: 20px;     /* PlayerItem name, Montserrat Bold */
+  --font-size-stat: 15.652px;        /* PlayerInfo stat numbers, Montserrat Regular, uppercase */
+
+  /* Radii */
+  --radius-navbar: 10px;
+  --radius-item: 17px;
+  --radius-pill: 20px;
+  --radius-button-pressed: 2px;      /* ~1.68px corner on pressed button shape */
+
+  /* Spacing */
+  --space-pill-y: 9px;
+  --space-pill-x: 20px;
+  --space-pill-gap: 10px;
+  --space-item-gap: 23px;            /* gap between rank, avatar, name in PlayerItem */
+  --space-stat-col-gap: 10px;
+  --space-stat-row-gap: 3px;
+
+  /* Sizes */
+  --size-frame-width: 440px;
+  --size-frame-height: 956px;
+  --size-button-w: 164px;
+  --size-button-h: 64px;
+  --size-item-h: 75px;
+  --size-item-w: 518px;
+  --size-avatar: 41px;               /* 40.949px */
+  --size-navbar-w: 219.45px;
+  --size-navbar-h: 49px;
+  --size-icon-button: 25px;
+
+  /* Shadows / glows */
+  --shadow-item: 0 0 5px 0 rgba(180, 180, 180, 0.25);
+  --shadow-button-inset: inset 0 4px 0 rgba(0, 0, 0, 0.4);
+  --text-shadow-button: 0 2.026px 0 #000000;
+  --text-shadow-rank: 0 3.146px 0 #000000;
+  --text-shadow-pressed-blue: 0 1.085px 0 #002645;
+  --text-shadow-pressed-negative: 0 1.085px 0 #330202;
+}
