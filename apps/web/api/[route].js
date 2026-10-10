@@ -1824,6 +1824,13 @@ function warState(map, players, earnedToday, battles, today) {
       owner[b.to] = b.team;
       garrison[b.to] = b.attackersLeft;
       if (piece) piece.territoryId = b.to;
+      const lost = map.territories.find((t) => t.id === b.to);
+      for (const p of players) {
+        const other2 = pieces[p.id];
+        if (!other2 || p.team === b.team || other2.territoryId !== b.to) continue;
+        const retreat = lost?.neighbors.filter((n) => owner[n] === p.team).sort()[0] ?? map.territories.find((t) => t.team === p.team && t.isHq && owner[t.id] === p.team)?.id ?? map.territories.find((t) => owner[t.id] === p.team)?.id;
+        if (retreat) other2.territoryId = retreat;
+      }
     } else {
       garrison[b.to] = b.defendersLeft;
     }

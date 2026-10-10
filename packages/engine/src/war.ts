@@ -93,6 +93,16 @@ export function warState(
       owner[b.to] = b.team;
       garrison[b.to] = b.attackersLeft;
       if (piece) piece.territoryId = b.to;
+      // Defenders standing on the lost territory retreat to a neighbour their team still holds, else their HQ.
+      const lost = map.territories.find((t) => t.id === b.to);
+      for (const p of players) {
+        const other = pieces[p.id];
+        if (!other || p.team === b.team || other.territoryId !== b.to) continue;
+        const retreat = lost?.neighbors.filter((n) => owner[n] === p.team).sort()[0]
+          ?? map.territories.find((t) => t.team === p.team && t.isHq && owner[t.id] === p.team)?.id
+          ?? map.territories.find((t) => owner[t.id] === p.team)?.id;
+        if (retreat) other.territoryId = retreat;
+      }
     } else {
       garrison[b.to] = b.defendersLeft;
     }

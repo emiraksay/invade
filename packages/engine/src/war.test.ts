@@ -87,3 +87,19 @@ describe('warState on a new map', () => {
     expect(war.pieces.emir?.territoryId).not.toBe('t14');
   });
 });
+
+describe('retreat', () => {
+  it('moves defenders off a captured territory to one their team still holds', () => {
+    const team = (t: 'white' | 'black', n: number) => Array.from({ length: n }, (_, i) => ({ id: `${t}${i}`, name: `${t}${i}`, team: t }));
+    const ps = [...team('white', 4), ...team('black', 4)];
+    const start = warState(DEFAULT_MAP, ps, { black0: 8 }, [], TODAY);
+    const target = attackOptions(start, DEFAULT_MAP, 'black0')[0]!;
+    const defenders = ps.filter((p) => p.team === 'white' && start.pieces[p.id]!.territoryId === target.to);
+    const war = warState(DEFAULT_MAP, ps, { black0: 8 }, [battle({ playerId: 'black0', team: 'black', to: target.to, attackers: 8, attackersLeft: 7 })], TODAY);
+    for (const d of defenders) expect(war.owner[war.pieces[d.id]!.territoryId]).toBe('white');
+    for (const p of ps.filter((x) => x.team === 'white')) {
+      for (const o of attackOptions(war, DEFAULT_MAP, p.id)) expect(war.owner[o.to]).toBe('black');
+    }
+  });
+});
+
