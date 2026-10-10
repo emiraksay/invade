@@ -8,8 +8,9 @@ const fmt = new Intl.NumberFormat('de-DE');
 /** The numbers behind the order, so the words can always be checked against the game. */
 export function orderFacts(o: GeneralOrder): string {
   switch (o.kind) {
-    case 'attack': return `Attack ${o.territory} · ${o.soldiers} vs ${o.defenders} · ${Math.round(o.odds * 100)}%`;
-    case 'walk': return `${fmt.format(o.stepsToGo)} steps to +${o.gain}${o.unlocksBonus ? ' · team bonus' : ''}`;
+    case 'attack': return `Attack ${o.target} · ${o.soldiers} vs ${o.defenders} · ${Math.round(o.odds * 100)}%`;
+    case 'bonus': return `${fmt.format(o.stepsToGo)} steps to ${fmt.format(o.threshold)} · team bonus +${o.bonus}`;
+    case 'walk': return `${fmt.format(o.stepsToGo)} steps to +${o.gain}`;
     case 'hold': return `Hold ${o.territory}`;
   }
 }
@@ -31,8 +32,8 @@ function useGeneral(load: () => Promise<Awaited<ReturnType<typeof api.general>>>
 }
 
 /**
- * ⚔ General's orders, for the player (top of OPEN LIST on /walk). The order and its numbers come from
- * the server (engine rules); Claude writes the lines. Refetches when `refreshKey` changes (a sync, a battle).
+ * ⚔ General's orders, for the player (top of OPEN LIST on /walk). The order and its numbers come from the
+ * server (engine rules); Claude writes the text. Refetches when `refreshKey` changes (a sync, a battle).
  */
 export function GeneralOrders({ token, refreshKey, preload }: { token: string; refreshKey: string; preload?: GeneralResponse }) {
   const [state, retry] = useGeneral(() => api.general(token), refreshKey, preload);
@@ -47,8 +48,12 @@ export function GeneralOrders({ token, refreshKey, preload }: { token: string; r
       )}
       {state.status === 'ready' && (
         <>
-          {state.data.lines.map((l, i) => <p key={i} style={{ margin: 0, fontSize: i === 0 ? 17 : 15, lineHeight: 1.35, fontWeight: i === 0 ? 700 : 400 }}>{l}</p>)}
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>{orderFacts(state.data.order)}{state.data.writer === 'template' ? ' · Claude offline' : ''}</p>
+          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.35, fontWeight: 700 }}>{state.data.text}</p>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            {orderFacts(state.data.order)}
+            {state.data.order.kind === 'attack' && ' · View on map'}
+            {state.data.writer === 'template' && ' · Claude offline'}
+          </p>
         </>
       )}
     </section>
@@ -61,7 +66,7 @@ export function TeamGeneral({ code, team, name, refreshKey, preload }: { code: s
   if (state.status !== 'ready') return <p className="muted" style={{ margin: 0, fontSize: 15, minHeight: 20 }}>{state.status === 'loading' ? `${name} General is reading the map…` : ''}</p>;
   return (
     <p style={{ margin: 0, fontSize: 16, lineHeight: 1.4 }}>
-      <strong>{name} General:</strong> {state.data.lines.join(' ')}
+      <strong>{name} General:</strong> {state.data.text}
       <span className="muted" style={{ fontSize: 13 }}> · {orderFacts(state.data.order)}</span>
     </p>
   );

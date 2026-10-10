@@ -4,7 +4,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import {
   DEFAULT_MAP,
-  STARTING_GARRISON,
   gameDayOf,
   startingPositions,
   summarizeTeamDay,
@@ -12,7 +11,6 @@ import {
   type ApiResult,
   type GeneralOrder,
   type GeneralResponse,
-  type MapDef,
   type Player,
   type PlayerDay,
   type TeamDay,
@@ -21,137 +19,158 @@ import {
 import { hashToken } from './tokens';
 import type { GameRow, Repo } from './handlers';
 
-/** An enemy territory the player could attack. `odds(n)` = chance of taking it with n soldiers. */
+/** An enemy territory the player could attack, as the engine's attackOptions() will return it. */
 export interface AttackOption {
-  territoryId: string;
-  territory: string;
+  to: string;
+  name: string;
   defenders: number;
-  odds: (soldiers: number) => number;
+  maxAttackers: number;
 }
 
 export const STRONG_ODDS = 0.6;
 
-/**
- * PROVISIONAL until the engine ships `attackOptions(war, map, playerId)`: enemy territories next to the
- * player's piece, defenders = starting garrison + enemy pieces standing there, odds = decision 4
- * (attackers ÷ (attackers + defenders)). Swap this one function for the engine's when it lands.
- */
-export function provisionalAttackOptions(
-  map: MapDef,
-  players: readonly Player[],
-  soldiersById: ReadonlyMap<string, number>,
-  playerId: string,
-): AttackOption[] {
-  const me = players.find((p) => p.id === playerId);
-  const positions = startingPositions(map, players);
-  const here = positions.get(playerId);
-  if (!me || !here) return [];
-  const territory = map.territories.find((t) => t.id === here);
-  if (!territory) return [];
-  return territory.neighbors
-    .map((id) => map.territories.find((t) => t.id === id))
-    .filter((t): t is NonNullable<typeof t> => !!t && t.team !== me.team)
-    .map((t) => {
-      const enemyPieces = players.filter((p) => p.team !== me.team && positions.get(p.id) === t.id);
-      const defenders = STARTING_GARRISON + enemyPieces.reduce((s, p) => s + (soldiersById.get(p.id) ?? 0), 0);
-      return { territoryId: t.id, territory: t.name, defenders, odds: (n) => (n > 0 ? n / (n + defenders) : 0) };
-    });
+/** Decision 4: P(win) = attackers ÷ (attackers + defenders). Replaced by the engine's attackOdds() when it lands. */
+export const attackOdds = (attackers: number, defenders: number): number =>
+  attackers > 0 ? attackers / (attackers + defenders) : 0;
+
+export interface OrderInput {
+  me: PlayerDay;
+  team: TeamDay;
+  /** From the engine's attackOptions(); empty until the war functions are wired. */
+  options: readonly AttackOption[];
+  /** Where my piece stands (for a Hold order). */
+  territory: string | null;
 }
 
-/** Smallest force (≤ available) that reaches STRONG_ODDS, or null if even everything is not enough. */
-export function forceFor(option: AttackOption, available: number): number | null {
-  for (let n = 1; n <= available; n++) if (option.odds(n) >= STRONG_ODDS) return n;
+/** Team-bonus threshold the team has not fully reached yet (5k, then 10k), or null when every member is past 10k. */
+export function nextBonusThreshold(team: TeamDay): { threshold: number; bonus: number } | null {
+  const steps = team.members.map((m) => m.steps);
+  if (steps.length === 0) return null;
+  const unit = Math.max(1, Math.floor(steps.length / 2));
+  const lowest = Math.min(...steps);
+  if (lowest < 5_000) return { threshold: 5_000, bonus: unit };
+  if (lowest < 10_000) return { threshold: 10_000, bonus: 2 * unit - teamBonus(steps) };
   return null;
 }
 
-export interface OrderFacts {
-  me: PlayerDay;
-  team: TeamDay;
-  options: AttackOption[];
-  /** Where my piece stands (for a Hold order). */
-  myTerritory: { id: string; name: string } | null;
-}
-
 /**
- * The order, by code: (a) a strong attack (odds ≥ 0.6 with my soldiers), the surest one;
- * (b) else the next milestone, flagged when it also unlocks the team bonus; (c) else hold.
- * Pure: same facts, same order.
+ * The order, by code, in priority:
+ *  a) ATTACK: the option with the best odds using all maxAttackers, if those odds reach 60%;
+ *  b) BONUS: I am one of the members below the team's next bonus threshold;
+ *  c) WALK: my next milestone;
+ *  d) HOLD.
+ * Pure: same input, same order.
  */
-export function pickOrder({ me, team, options, myTerritory }: OrderFacts): GeneralOrder {
-  const available = me.soldiers;
-  let best: { opt: AttackOption; n: number; odds: number } | null = null;
+export function pickOrder({ me, team, options, territory }: OrderInput): GeneralOrder {
+  const base = { player: me.player.name, team: me.player.team };
+  let best: { opt: AttackOption; odds: number } | null = null;
   for (const opt of options) {
-    const n = forceFor(opt, available);
-    if (n === null) continue;
-    const odds = opt.odds(n);
-    if (!best || odds > best.odds || (odds === best.odds && opt.defenders < best.opt.defenders)) best = { opt, n, odds };
+    const odds = attackOdds(opt.maxAttackers, opt.defenders);
+    if (!best || odds > best.odds || (odds === best.odds && opt.defenders < best.opt.defenders)) best = { opt, odds };
   }
-  if (best) {
-    return { kind: 'attack', territoryId: best.opt.territoryId, territory: best.opt.territory, soldiers: best.n, defenders: best.opt.defenders, odds: Math.round(best.odds * 100) / 100 };
+  if (best && best.odds >= STRONG_ODDS) {
+    return { ...base, kind: 'attack', to: best.opt.to, target: best.opt.name, soldiers: best.opt.maxAttackers, defenders: best.opt.defenders, odds: Math.round(best.odds * 100) / 100 };
   }
-  if (me.next) {
-    const memberSteps = team.members.map((m) => m.steps);
-    const i = team.members.findIndex((m) => m.player.id === me.player.id);
-    const withMilestone = memberSteps.map((s, j) => (j === i ? Math.max(s, me.next!.milestone.steps) : s));
-    return { kind: 'walk', stepsToGo: me.next.stepsToGo, gain: me.next.gain, unlocksBonus: teamBonus(withMilestone) > teamBonus(memberSteps) };
+  const bonus = nextBonusThreshold(team);
+  if (bonus && me.steps < bonus.threshold) {
+    return { ...base, kind: 'bonus', stepsToGo: bonus.threshold - me.steps, threshold: bonus.threshold, bonus: bonus.bonus };
   }
-  return { kind: 'hold', territoryId: myTerritory?.id ?? '', territory: myTerritory?.name ?? 'your ground' };
+  if (me.next) return { ...base, kind: 'walk', stepsToGo: me.next.stepsToGo, gain: me.next.gain };
+  return { ...base, kind: 'hold', territory: territory ?? 'your ground' };
 }
 
 const fmt = new Intl.NumberFormat('de-DE');
 
-/** Fallback lines when the model is unavailable: correct, in the General's voice, a bit flat. */
-export function templateLines(order: GeneralOrder, name: string): string[] {
-  switch (order.kind) {
-    case 'attack':
-      return [`${name}, attack ${order.territory} with ${order.soldiers}. ${Math.round(order.odds * 100)}% to take it.`, `${order.defenders} defenders. Go now.`];
-    case 'walk':
-      return [`${name}, walk ${fmt.format(order.stepsToGo)} steps: +${order.gain} soldiers${order.unlocksBonus ? ' and the team bonus' : ''}.`, 'Boots on. The map does not fill itself.'];
-    case 'hold':
-      return [`${name}, hold ${order.territory}. Max army today, nothing to attack yet.`, 'Rest. Tonight we move.'];
+/** Fallback when the model is unavailable: correct, in the General's voice, a bit flat. */
+export function templateText(o: GeneralOrder): string {
+  switch (o.kind) {
+    case 'attack': return `${o.player}, strike ${o.target} with ${o.soldiers} soldiers. ${Math.round(o.odds * 100)}% says we take it.`;
+    case 'bonus': return `${o.player}, ${fmt.format(o.stepsToGo)} more steps and the whole team earns +${o.bonus}. They are waiting on you.`;
+    case 'walk': return `${o.player}, ${fmt.format(o.stepsToGo)} more steps and ${o.gain} fresh soldiers join you.`;
+    case 'hold': return `${o.player}, hold ${o.territory}. Max army today. Tonight we move.`;
   }
 }
 
-export type GeneralWriter = (order: GeneralOrder, name: string, teamName: string) => Promise<string[]>;
+export type GeneralWriter = (order: GeneralOrder) => Promise<string>;
 
-const Output = z.object({ lines: z.array(z.string().min(1)).min(1).max(2) });
-const OUTPUT_SCHEMA = {
-  type: 'object',
-  properties: { lines: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 2 } },
-  required: ['lines'],
-  additionalProperties: false,
-} as const;
+const MAX_CHARS = 140;
+const Output = z.object({ text: z.string().min(1) });
+const OUTPUT_SCHEMA = { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false } as const;
+const SYSTEM = `You are the General of a team in Invade, a game where friends walk in real life to earn soldiers and fight over a shared map of Barcelona neighbourhoods at night. You receive ONE order the game already decided, with its exact numbers. Rewrite it as one or two short lines in a war-commander's voice: punchy, confident, a little dry, addressing the player by first name. Keep every number exactly as given; never add numbers, places or promises. At most 140 characters in total. No emojis.`;
 
-const SYSTEM = `You are the General of a team in Invade, a game where friends walk in real life to earn soldiers and fight over a shared map of Barcelona neighbourhoods at night. You receive ONE order that the game already decided, with its exact numbers (territory, soldiers, defenders, win odds, steps to go, soldiers gained, whether it unlocks the team bonus). Rewrite it as one or two short lines in a commander's voice: punchy, confident, a little dry, addressed to the player by first name. Keep every number exactly as given, never add numbers, places or promises. Max 18 words per line. No emojis. No hashtags.`;
-
-/** Claude writes the words. Structured JSON output; validated with zod. */
-export const claudeWriter: GeneralWriter = async (order, name, teamName) => {
-  const client = new Anthropic({ timeout: 20_000, maxRetries: 1 });
+/** Claude writes the words: one call, 4 s timeout, no retries. Structured JSON, validated. */
+export const claudeWriter: GeneralWriter = async (order) => {
+  const client = new Anthropic({ timeout: 4_000, maxRetries: 0 });
   const response = await client.messages.create({
     model: 'claude-opus-5-5',
-    max_tokens: 300,
+    max_tokens: 200,
     system: SYSTEM,
     output_config: { effort: 'low', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
-    messages: [{ role: 'user', content: JSON.stringify({ player: name, team: teamName, order }) }],
+    messages: [{ role: 'user', content: JSON.stringify(order) }],
   });
   if (response.stop_reason === 'refusal') throw new Error('general: model declined');
-  const text = response.content.find((b) => b.type === 'text')?.text ?? '';
-  return Output.parse(JSON.parse(text)).lines.map((l) => l.trim());
+  const text = Output.parse(JSON.parse(response.content.find((b) => b.type === 'text')?.text ?? '')).text.trim();
+  return text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS - 1).trimEnd()}…` : text;
 };
+
+/** Words cache per (player, order) for 2 minutes: the same order asked twice costs one call. */
+const CACHE_MS = 2 * 60_000;
+const cache = new Map<string, { text: string; until: number }>();
+export function cachedWords(key: string, write: () => Promise<string>, now = Date.now()): Promise<string> {
+  const hit = cache.get(key);
+  if (hit && hit.until > now) return Promise.resolve(hit.text);
+  return write().then((text) => { cache.set(key, { text, until: now + CACHE_MS }); return text; });
+}
+export const _resetCache = () => cache.clear();
 
 const requestSchema = z.union([
   z.object({ token: z.string().trim().min(8).max(64) }),
   z.object({ code: z.string().trim().toUpperCase().min(1).max(20), team: z.enum(['white', 'black']) }),
 ]);
 
-/** POST /api/general. Facts and order from code; words from `writer` (Claude by default, template when no key or on error). */
-export async function general(repo: Repo, input: unknown, now: Date, writer?: GeneralWriter): Promise<ApiResult<GeneralResponse>> {
+export interface WarContext {
+  players: Player[];
+  days: Record<TeamId, TeamDay>;
+  attackOptions: (playerId: string) => AttackOption[];
+  territoryOf: (playerId: string) => string | null;
+}
+
+/**
+ * Today's context for the General. Attack options are EMPTY until the engine's war functions are merged
+ * (Emir: "wire attacks when I say"); everything else is live. Swap the two closures for loadWarContext() then.
+ */
+export async function loadContext(repo: Repo, game: GameRow, day: string): Promise<WarContext> {
+  const [players, reports] = await Promise.all([repo.listPlayers(game.id), repo.listStepReports(game.id, day)]);
+  const days: Record<TeamId, TeamDay> = {
+    white: summarizeTeamDay('white', players, reports, day),
+    black: summarizeTeamDay('black', players, reports, day),
+  };
+  const positions = startingPositions(DEFAULT_MAP, players);
+  return {
+    players,
+    days,
+    attackOptions: () => [],
+    territoryOf: (id) => DEFAULT_MAP.territories.find((t) => t.id === positions.get(id))?.name ?? null,
+  };
+}
+
+const gainOf = (o: GeneralOrder) => (o.kind === 'bonus' ? o.bonus : o.kind === 'walk' ? o.gain : 0);
+
+/** The team's strongest order: the best attack, else the biggest walking gain (fewest steps on a tie), else hold. */
+export function teamOrder(orders: readonly GeneralOrder[]): GeneralOrder | null {
+  const attacks = orders.filter((o): o is Extract<GeneralOrder, { kind: 'attack' }> => o.kind === 'attack').sort((a, b) => b.odds - a.odds);
+  if (attacks[0]) return attacks[0];
+  const walks = orders.filter((o): o is Extract<GeneralOrder, { kind: 'bonus' | 'walk' }> => o.kind === 'bonus' || o.kind === 'walk')
+    .sort((a, b) => gainOf(b) - gainOf(a) || a.stepsToGo - b.stepsToGo);
+  return walks[0] ?? orders[0] ?? null;
+}
+
+/** POST /api/general. Order from code; words from `writer` (Claude by default, template when no key or on error). */
+export async function general(repo: Repo, input: unknown, now: Date, writer?: GeneralWriter, load: typeof loadContext = loadContext): Promise<ApiResult<GeneralResponse>> {
   const parsed = requestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: 'Invalid request' };
 
-  let game: GameRow;
-  let team: TeamId;
-  let playerId: string | null;
+  let game: GameRow; let team: TeamId; let playerId: string | null;
   if ('token' in parsed.data) {
     const found = await repo.findByTokenHash(hashToken(parsed.data.token));
     if (!found) return { ok: false, error: 'Unknown code' };
@@ -163,47 +182,30 @@ export async function general(repo: Repo, input: unknown, now: Date, writer?: Ge
   }
 
   const day = gameDayOf(now, game.settings.timezone);
-  const [players, reports] = await Promise.all([repo.listPlayers(game.id), repo.listStepReports(game.id, day)]);
-  const days: Record<TeamId, TeamDay> = {
-    white: summarizeTeamDay('white', players, reports, day),
-    black: summarizeTeamDay('black', players, reports, day),
-  };
-  const soldiersById = new Map<string, number>();
-  for (const t of ['white', 'black'] as TeamId[]) for (const m of days[t].members) soldiersById.set(m.player.id, m.soldiers);
-  const positions = startingPositions(DEFAULT_MAP, players);
-  const territoryOf = (id: string) => {
-    const t = DEFAULT_MAP.territories.find((x) => x.id === positions.get(id));
-    return t ? { id: t.id, name: t.name } : null;
-  };
-  const orderFor = (m: PlayerDay): GeneralOrder =>
-    pickOrder({ me: m, team: days[team], options: provisionalAttackOptions(DEFAULT_MAP, players, soldiersById, m.player.id), myTerritory: territoryOf(m.player.id) });
+  const ctx = await load(repo, game, day);
+  const members = ctx.days[team].members;
+  const orderFor = (m: PlayerDay) => pickOrder({ me: m, team: ctx.days[team], options: ctx.attackOptions(m.player.id), territory: ctx.territoryOf(m.player.id) });
 
-  const members = days[team].members;
-  if (members.length === 0) return { ok: false, error: 'Nobody on that team yet' };
-  let target: PlayerDay;
+  let order: GeneralOrder | null;
   if (playerId) {
-    target = members.find((m) => m.player.id === playerId) ?? { player: players.find((p) => p.id === playerId)!, steps: 0, soldiers: 0, next: null };
+    const me = members.find((m) => m.player.id === playerId)
+      ?? { player: ctx.players.find((p) => p.id === playerId)!, steps: 0, soldiers: 0, next: { milestone: { steps: 5_000, soldiers: 4 }, stepsToGo: 5_000, gain: 4 } };
+    order = orderFor(me);
   } else {
-    // Team version: the most decisive order on the team: the surest attack, else the closest milestone, else the first member.
-    const ranked = members.map((m) => ({ m, o: orderFor(m) }));
-    const attack = ranked.filter((r) => r.o.kind === 'attack').sort((a, b) => (b.o as { odds: number }).odds - (a.o as { odds: number }).odds)[0];
-    const walk = ranked.filter((r) => r.o.kind === 'walk').sort((a, b) => (a.o as { stepsToGo: number }).stepsToGo - (b.o as { stepsToGo: number }).stepsToGo)[0];
-    target = (attack ?? walk ?? ranked[0]!).m;
+    order = teamOrder(members.map(orderFor));
   }
-  const order = orderFor(target);
-  const name = target.player.name;
-  const teamName = game.settings.teamNames[team];
+  if (!order) return { ok: false, error: 'Nobody on that team yet' };
 
   const write = writer ?? (process.env.ANTHROPIC_API_KEY?.trim() ? claudeWriter : null);
-  let lines: string[] | null = null;
+  let text = templateText(order);
   let usedWriter: GeneralResponse['writer'] = 'template';
   if (write) {
     try {
-      lines = await write(order, name, teamName);
+      text = await cachedWords(`${playerId ?? team}:${JSON.stringify(order)}`, () => write(order!), now.getTime());
       usedWriter = 'claude';
     } catch (e) {
       console.error(`[general] writer failed, using template: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return { ok: true, data: { day, team, playerId: target.player.id, name, order, lines: lines?.length ? lines : templateLines(order, name), writer: usedWriter } };
+  return { ok: true, data: { day, order, text, writer: usedWriter } };
 }

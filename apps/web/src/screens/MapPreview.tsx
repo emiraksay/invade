@@ -61,10 +61,10 @@ const FAKE_EVENTS: MilestoneEvent[] = [
   { id: 1, at: new Date(Date.now() - 95 * 60_000).toISOString(), playerId: 'w2', team: 'white', steps: 5_100, soldiers: 4, gained: 4 },
 ];
 const FAKE_GENERAL: Record<'white' | 'black', GeneralResponse> = {
-  white: { day: '2026-10-10', team: 'white', playerId: 'w1', name: 'Kateryna', writer: 'claude', order: { kind: 'attack', territoryId: 't13', territory: 'Eixample', soldiers: 3, defenders: 2, odds: 0.6 },
-    lines: ['Kateryna, Eixample is soft: 2 defenders. Take it with 3.', 'Sixty percent. The rest of you, keep walking.'] },
-  black: { day: '2026-10-10', team: 'black', playerId: 'b2', name: 'Hasan', writer: 'claude', order: { kind: 'walk', stepsToGo: 20, gain: 4, unlocksBonus: true },
-    lines: ['Hasan, 20 steps. Twenty. Then the whole team gets the bonus.'] },
+  white: { day: '2026-10-10', writer: 'claude', order: { player: 'Kateryna', team: 'white', kind: 'attack', to: 't13', target: 'Eixample', soldiers: 8, defenders: 2, odds: 0.8 },
+    text: 'Kateryna, Eixample is soft: 2 defenders. Hit it with all 8. Eighty percent says it is ours.' },
+  black: { day: '2026-10-10', writer: 'claude', order: { player: 'Hasan', team: 'black', kind: 'bonus', stepsToGo: 20, threshold: 5_000, bonus: 1 },
+    text: 'Hasan, 20 steps. Twenty. Then the whole team earns the bonus. Move.' },
 };
 const FAKE_SETTINGS: GameSettings = {
   campaignDays: 30, winThreshold: 0.51, walkPhaseHours: 24, timezone: 'Europe/Madrid', teamNames: { white: 'White', black: 'Black' },
