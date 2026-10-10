@@ -3,6 +3,7 @@ import { DEFAULT_MAP, territoryShare, type Player, type TeamId } from '@invade/e
 import { Battlefield } from '../map/Battlefield';
 import { walkPhaseMapView } from '../map/model';
 import { supabase } from '../data/supabase';
+import { JoinQr } from '../components/JoinQr';
 import { DAY_NAMES, simulateWeek, type DemoDay } from '../data/demoWeek';
 
 /**
@@ -17,6 +18,8 @@ const DEMO_PLAYERS: Player[] = [
   { id: 'b1', name: 'Emir', team: 'black' }, { id: 'b2', name: 'Hasan', team: 'black' }, { id: 'b3', name: 'Selin', team: 'black' },
 ];
 const MAX_PER_TEAM = 4;
+/** Always the live game: the demo may run from a laptop (localhost), which phones in the room can't open. */
+const JOIN_URL = 'https://invade.vercel.app/join?code=INVADE';
 
 /** The game's real players (public read), at most 4 per team; demo players when unavailable. */
 function usePlayers(code: string): Player[] {
@@ -232,6 +235,13 @@ export function DemoWeek() {
         </button>
       </div>
       </aside>
+
+      {/* Scan to play: the room joins the real game. */}
+      <div style={{ position: 'fixed', right: 24, bottom: 24, display: 'grid', justifyItems: 'center', gap: 6, padding: '12px 14px', borderRadius: 16, background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.3)' }}>
+        <JoinQr url={JOIN_URL} size={128} />
+        <strong className="display" style={{ fontSize: 18, letterSpacing: '0.06em' }}>SCAN TO PLAY</strong>
+        <span className="muted" style={{ fontSize: 12 }}>invade.vercel.app · code INVADE</span>
+      </div>
     </main>
   );
 }
