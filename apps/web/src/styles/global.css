@@ -111,3 +111,48 @@ button, input { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Walk screen (Figma Base + LOG): full-height column, the map takes whatever is left. */
+.walk { height: 100dvh; min-height: 0; gap: 14px; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+.walk-map { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; justify-content: center; }
+.walk-picked { position: absolute; left: 0; right: 0; bottom: 0; min-height: 18px; }
+.walk-scroll { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 28px; align-content: start; padding-bottom: 8px; }
+
+/* Figma OPEN LIST: a light grey square-cornered button with dark text. */
+.open-list {
+  align-self: center;
+  min-width: 122px; min-height: 34px; padding: 6px 20px;
+  background: #e5e5e5; color: #111; border: 0; border-radius: 2px;
+  font-family: var(--font-body); font-size: 15px; text-transform: uppercase; letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.open-list:active { transform: translateY(1px); }
+
+/* Navbar tap zones over the exported Figma art. */
+.nav-zone { background: none; border: 0; padding: 0; cursor: pointer; min-height: 44px; }
+.nav-zone:disabled { cursor: default; }
+.nav-zone:focus-visible { outline: 2px solid #fff; outline-offset: -4px; border-radius: 8px; }
+
+/* Figma Idle member row: rank, avatar, name, caret; expands to today's stats. */
+.member-row {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  min-height: 52px; padding: 10px 16px;
+  background: none; border: 0; cursor: pointer; font-size: 16px;
+}
+.member-rank { width: 16px; font-size: 18px; color: var(--color-text-secondary); }
+.member-stats { margin: 0; padding: 4px 16px 14px 46px; display: grid; gap: 10px; font-size: 15px; }
+.member-stats > div { display: flex; align-items: center; gap: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.member-stats dd { margin: 0; }
+
+/* OPEN LIST sheet: slides up over the map. */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  width: 100%; max-width: var(--size-frame-width); max-height: 82dvh; overflow-y: auto;
+  display: grid; gap: 18px; padding: 20px 20px calc(env(safe-area-inset-bottom) + 20px);
+  background: linear-gradient(var(--color-bg-raised), var(--color-bg));
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
+  animation: sheet-up 220ms ease-out both;
+}
+.sheet-close { background: none; border: 0; font-size: 20px; min-width: 44px; min-height: 44px; cursor: pointer; color: var(--color-text-secondary); }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
