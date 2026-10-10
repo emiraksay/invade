@@ -9,6 +9,8 @@ import { StatsBar } from '../components/StatsBar';
 import { TeamList } from '../components/TeamList';
 import { TonightCard } from '../components/TonightCard';
 import { GeneralOrders } from '../components/GeneralOrders';
+import { SeasonBar } from '../components/SeasonBar';
+import { HowToPlay, useFirstVisitHowTo } from '../components/HowToPlay';
 import { DemoSync } from '../components/DemoSync';
 import { AttackSheet } from '../components/AttackSheet';
 import { SettingsPanel } from '../components/SettingsPanel';
@@ -49,6 +51,7 @@ const byPlayer = (r?: NudgeResponse): Record<string, Nudge> => Object.fromEntrie
  */
 export function WalkView({ session, teams, settings, live, players = [], events = [], battles = [], day, nudgePreload, generalPreload }: WalkViewProps) {
   const [tab, setTab] = useState<Tab>('map');
+  const [howToOpen, closeHowTo] = useFirstVisitHowTo();
   const [listOpen, setListOpen] = useState(false);
   const [picked, setPicked] = useState<TerritoryView | null>(null);
   // Attack: tap my piece -> attackable territories light up -> tap one -> the sheet.
@@ -112,6 +115,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
       {tab === 'map' && (
         <>
           <Countdown timezone={settings.timezone} />
+          <SeasonBar war={view.war} teamNames={settings.teamNames} timezone={settings.timezone} />
           <StatsBar stats={stats} />
           <div className="walk-map">
             <Battlefield
@@ -150,6 +154,7 @@ export function WalkView({ session, teams, settings, live, players = [], events 
           }}
         />
       )}
+      <HowToPlay open={howToOpen} onClose={closeHowTo} />
       <NavBar tab={tab} alert={Object.keys(nudges).length > 0} onTab={(t) => { setTab(t); setListOpen(false); }} />
 
       {target && (

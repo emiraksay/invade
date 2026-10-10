@@ -38,7 +38,7 @@ export function Join() {
     setBusy(false);
     if (!r.ok) return setError(r.error);
     saveSession({ token: r.data.token, player: r.data.player, game: r.data.game });
-    navigate('/connect');
+    navigate('/lobby');
   }
 
   if (returning) {
