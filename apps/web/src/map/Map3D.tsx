@@ -7,7 +7,6 @@ import type { Line2 } from 'three-stdlib';
 import type { TeamId } from '@invade/engine';
 import type { MapView, TerritoryView } from './model';
 import { insetPolygon, SLAB_GAP } from './geometry';
-import { islandOutline } from './island';
 import { CROWN_FILL, CrownIcon } from './crown';
 
 /**
@@ -18,6 +17,8 @@ import { CROWN_FILL, CrownIcon } from './crown';
  */
 
 const SLAB = 5;                // thickness of each territory slab (map units)
+const REFLECTION_DEPTH = 70;   // how far each slab's glowing reflection reaches down (map units)
+const LIGHT_DIR = [-0.45, 0.89] as const; // xz direction the reflections glow toward (front-left, like the render)
 const STEP_MAX = 2.4;          // slabs sit at slightly different heights, like the Figma's broken ground
 const MAP_YAW = -0.14;         // radians: the Figma's map sits slightly diagonal
 const HQ_LIFT_PER_SOLDIER = 0.25;
@@ -44,8 +45,7 @@ const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-r
 const RIPPLE_MS = 1100;          // how long one tile glows after soldiers arrive
 const RIPPLE_STEP_MS = 140;      // delay per step from the HQ: the glow marches outward
 
-/** `mirror`: drawn as the island's reflection under the water (no crown, not tappable). */
-function Pillar({ t, teamSoldiers, selected, onTap, mirror = false }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void; mirror?: boolean }) {
+function Pillar({ t, teamSoldiers, selected, onTap }: { t: TerritoryView; teamSoldiers: number; selected: boolean; onTap?: (t: TerritoryView) => void }) {
   const group = useRef<THREE.Group>(null);
   const material = useRef<THREE.MeshStandardMaterial>(null);
   const invalidate = useThree((s) => s.invalidate);
@@ -71,6 +71,32 @@ function Pillar({ t, teamSoldiers, selected, onTap, mirror = false }: { t: Terri
     return g;
   }, [shape, step]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // The slab's reflection in the water (Figma): each side face continues down as a smooth glowing
+  // column, bright blue-white at the waterline fading to dark; faces turned to the light glow more,
+  // with a faint rainbow edge. Drawn additively, so it reads as light, not as a solid wall.
+  const reflection = useMemo(() => {
+    const g = new THREE.ExtrudeGeometry(shape, { depth: REFLECTION_DEPTH, steps: 12, bevelEnabled: false });
+    g.rotateX(Math.PI / 2);
+    g.translate(0, step - SLAB, 0);
+    const pos = g.getAttribute('position');
+    const nor = g.getAttribute('normal');
+    const colors = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const depth = Math.min(1, Math.max(0, (step - SLAB - pos.getY(i)) / REFLECTION_DEPTH));
+      const fade = Math.pow(1 - depth, 1.8);
+      const facing = Math.max(0, nor.getX(i) * LIGHT_DIR[0] + nor.getZ(i) * LIGHT_DIR[1]); // 0..1
+      const v = 0.1 + 0.36 * facing * facing;
+      const fringe = Math.max(0, -nor.getX(i)) * 0.18 * (1 - depth); // faint rainbow on left-facing edges
+      colors[i * 3] = fade * v * (0.86 - fringe);
+      colors[i * 3 + 1] = fade * v * (0.93 + fringe);
+      colors[i * 3 + 2] = fade * v;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    return g;
+  }, [shape, step]);
+  useEffect(() => () => reflection.dispose(), [reflection]);
+  const reflectionMat = useRef<THREE.MeshBasicMaterial>(null);
+  const glints = useRef<Line2>(null);
 
   const lift = t.isHq ? Math.min(HQ_LIFT_MAX, t.soldiers * HQ_LIFT_PER_SOLDIER) : 0;
   useEffect(() => invalidate(), [lift, invalidate]); // start easing toward the new height
@@ -91,8 +117,11 @@ function Pillar({ t, teamSoldiers, selected, onTap, mirror = false }: { t: Terri
       const k = age < 0 ? 0 : Math.max(0, 1 - age / RIPPLE_MS); // 1 at the flash, fading to 0
       // Held land breathes: a slow glow that rolls out from the HQ, stronger where the team is charged.
       const breath = reducedMotion ? 0 : 0.5 + 0.5 * Math.sin((clock.elapsedTime / BREATH_S) * Math.PI * 2 - t.depth * 0.7);
-      m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.06 + 0.22 * t.charge);
-      if (rim.current) rim.current.material.opacity = 0.08 + 0.25 * t.charge + breath * (0.1 + 0.3 * t.charge);
+      m.emissiveIntensity = baseEmissive + k * k * 0.9 + breath * (0.15 + 0.4 * t.charge);
+      if (rim.current) rim.current.material.opacity = 0.1 + 0.25 * t.charge + breath * (0.2 + 0.45 * t.charge);
+      // The reflection breathes with its slab, and the waterline glints drift like small waves.
+      if (reflectionMat.current) reflectionMat.current.opacity = 0.75 + 0.25 * breath * (0.4 + t.charge);
+      if (glints.current && !reducedMotion) glints.current.material.dashOffset = -clock.elapsedTime * 0.6;
       if (age < RIPPLE_MS) moving = true;
     }
     if (moving) invalidate();
@@ -102,6 +131,10 @@ function Pillar({ t, teamSoldiers, selected, onTap, mirror = false }: { t: Terri
   const edgeOpacity = selected ? 1 : 0.75 + 0.25 * t.charge;
   const [cx, cy] = t.center;
   // Top outline in world space (map y -> world z), closed, lifted a hair above the face to avoid z-fighting.
+  const waterline = useMemo<[number, number, number][]>(
+    () => [...poly, poly[0]!].map(([x, y]) => [x, step - SLAB - 0.4, y]),
+    [poly, step],
+  );
   const outline = useMemo<[number, number, number][]>(
     () => [...poly, poly[0]!].map(([x, y]) => [x, step + 1.05, y]),
     [poly, step],
@@ -111,7 +144,6 @@ function Pillar({ t, teamSoldiers, selected, onTap, mirror = false }: { t: Terri
     <group ref={group}>
       <mesh
         geometry={geometry}
-        raycast={mirror ? () => null : undefined}
         onClick={onTap ? (e) => { e.stopPropagation(); onTap(t); } : undefined}
         onPointerOver={onTap ? () => { document.body.style.cursor = 'pointer'; } : undefined}
         onPointerOut={onTap ? () => { document.body.style.cursor = ''; } : undefined}
@@ -130,69 +162,21 @@ function Pillar({ t, teamSoldiers, selected, onTap, mirror = false }: { t: Terri
         <meshStandardMaterial attach="material-1" color={SIDE_COLOR[t.owner]} roughness={0.45} metalness={0.1} />
       </mesh>
       {/* Thin bright rim where the top face meets the side, plus a faint glow as the team charges. */}
+      <mesh geometry={reflection} raycast={() => null} renderOrder={1}>
+        <meshBasicMaterial attach="material-0" visible={false} />
+        <meshBasicMaterial attach="material-1" ref={reflectionMat} vertexColors transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      {/* Waterline glints: a broken, sparkling white line where the slab meets the water. */}
+      <Line ref={glints} points={waterline} color="#ffffff" lineWidth={1.6} transparent opacity={0.8} dashed dashSize={0.9} gapSize={0.7} depthWrite={false} />
       <Line ref={rim} points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={4} transparent opacity={0.1 + 0.25 * t.charge} depthWrite={false} />
       <Line points={outline} color={selected ? '#7fb6ff' : '#ffffff'} lineWidth={1.4} transparent opacity={edgeOpacity} depthWrite={false} />
-      {t.isHq && !mirror && (
+      {t.isHq && (
         <Html position={[cx, step + 2.5, cy]} center distanceFactor={120} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           {/* Figma: the HQ shows just the crown, no number. */}
           <CrownIcon size={34} fill={CROWN_FILL[t.owner]} />
         </Html>
       )}
     </group>
-  );
-}
-
-const WATER = -SLAB + 1; // water level: the slabs' lower part sits in it
-
-/** Dark water, opaque near the island and fading out, so the page background shows at the edges. */
-function waterTexture(): THREE.Texture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d')!;
-  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.55, 'rgba(255,255,255,0.9)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 128, 128);
-  return new THREE.CanvasTexture(c);
-}
-
-/**
- * The island sits on still, dark water: the water dims the mirrored island under it into a soft
- * reflection, and a thin soft shadow hugs the coast. The shadow is a faked blur: a few copies of the
- * coastline, each a little wider and fainter.
- */
-function Water({ w, h }: { w: number; h: number }) {
-  const texture = useMemo(waterTexture, []);
-  useEffect(() => () => texture.dispose(), [texture]);
-  const shadow = useMemo(() => {
-    const coast = islandOutline(w, h);
-    return [0.3, 0.9, 1.6, 2.4].map((grow, i) => {
-      const pts = coast.map(([x, y]) => {
-        const dx = x - w / 2, dy = y - h / 2, d = Math.hypot(dx, dy) || 1;
-        return new THREE.Vector2(x + (dx / d) * grow, y + (dy / d) * grow);
-      });
-      const g = new THREE.ShapeGeometry(new THREE.Shape(pts));
-      g.rotateX(Math.PI / 2);
-      return { g, opacity: 0.22 - i * 0.045 };
-    });
-  }, [w, h]);
-  useEffect(() => () => shadow.forEach((l) => l.g.dispose()), [shadow]);
-  return (
-    <>
-      <mesh position={[0, WATER, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-        <planeGeometry args={[w * 1.7, h * 1.45]} />
-        <meshBasicMaterial map={texture} color="#0f0c0b" transparent opacity={0.78} depthWrite={false} toneMapped={false} />
-      </mesh>
-      <group position={[-w / 2, WATER + 0.05, -h / 2]}>
-        {shadow.map((l, i) => (
-          <mesh key={i} geometry={l.g} renderOrder={2}>
-            <meshBasicMaterial color="#000000" transparent opacity={l.opacity} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
-          </mesh>
-        ))}
-      </group>
-    </>
   );
 }
 
@@ -288,15 +272,6 @@ export default function Map3D({ view, selected = null, onTap, onReady, onContext
         <directionalLight position={[-40, 120, 80]} intensity={1.1} />
         {/* Centre the map on the origin: x in [-w/2, w/2], z in [-h/2, h/2] (Black far, White near). */}
         <group rotation={[0, MAP_YAW, 0]}>
-        {/* The island's reflection: the same slabs mirrored in the water plane (y -> 2*WATER - y). */}
-        <group position={[0, 2 * WATER, 0]} scale={[1, -1, 1]}>
-          <group position={[-w / 2, 0, -h / 2]}>
-            {view.territories.map((t) => (
-              <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={false} mirror />
-            ))}
-          </group>
-        </group>
-        <Water w={w} h={h} />
         <group position={[-w / 2, 0, -h / 2]}>
           {view.territories.map((t) => (
             <Pillar key={t.id} t={t} teamSoldiers={view.teams[t.owner].soldiers} selected={t.id === selected} onTap={onTap} />
