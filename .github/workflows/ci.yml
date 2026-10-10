@@ -22,3 +22,5 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build -w apps/web
+      - name: Server bundle is up to date (api/[route].js is generated from apps/web/server)
+        run: npm run build:api -w apps/web && git diff --exit-code -- 'apps/web/api'
