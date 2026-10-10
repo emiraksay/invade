@@ -102,6 +102,10 @@ button, input { font: inherit; color: inherit; }
   user-select: all;
 }
 
+/* Map: a tile flashes when soldiers arrive (see MapSvg). */
+.tile-pulse { opacity: 0; animation: tile-pulse 1100ms ease-out both; }
+@keyframes tile-pulse { 0% { opacity: 0; } 15% { opacity: 0.85; } 100% { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
